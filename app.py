@@ -814,19 +814,10 @@ cleanup_thread = threading.Thread(target=cleanup_cache, daemon=True)
 cleanup_thread.start()
 
 if __name__ == '__main__':
-    # Force delete any existing databases to ensure fresh schema
-    import os
-    for db_file in ['users.db', 'chats.db', 'database.db', 'chatapp.db']:
-        if os.path.exists(db_file):
-            os.remove(db_file)
-            print(f"Deleted old database: {db_file}")
-    
-    print("Creating fresh database with new schema...")
-    
     with app.app_context():
         # Create all tables in main database
         db.create_all()
         print("✅ Database created successfully with all tables!")
         print("🎉 Users, profiles, friendships, and messages tables ready!")
     
-    app.run(debug=True, threaded=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, threaded=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
