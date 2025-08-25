@@ -825,11 +825,20 @@ def cleanup_cache():
 cleanup_thread = threading.Thread(target=cleanup_cache, daemon=True)
 cleanup_thread.start()
 
+# Database initialization function
+def init_database():
+    """Initialize database tables"""
+    try:
+        with app.app_context():
+            db.create_all()
+            print("✅ Database initialized successfully with all tables!")
+            print("🎉 Users, profiles, friendships, and messages tables ready!")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        # Don't crash the app, just log the error
+
+# Initialize database when app starts
+init_database()
+
 if __name__ == '__main__':
-    with app.app_context():
-        # Create all tables in main database
-        db.create_all()
-        print("✅ Database created successfully with all tables!")
-        print("🎉 Users, profiles, friendships, and messages tables ready!")
-    
     app.run(debug=False, threaded=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
