@@ -16,7 +16,7 @@ app.config['SECRET_KEY'] = secrets.token_hex(32)
 
 # Database configuration: Prefer env var, fallback to provided Render Postgres URL
 _default_postgres_url = (
-    'postgresql://database_db_81rr_user:'
+    'postgresql+psycopg://database_db_81rr_user:'
     'N5xaJ1T1sZ1SwnaQYHS8JheZGt0qZpsm'
     '@dpg-d2m7qimr433s73cqvdg0-a.singapore-postgres.render.com/database_db_81rr'
 )
