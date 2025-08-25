@@ -14,8 +14,20 @@ import base64
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(32)
 
-# Single database for all tables (simplified for now)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chatapp.db'
+# Database configuration: Prefer env var, fallback to provided Render Postgres URL
+_default_postgres_url = (
+    'postgresql://database_db_81rr_user:'
+    'N5xaJ1T1sZ1SwnaQYHS8JheZGt0qZpsm'
+    '@dpg-d2m7qimr433s73cqvdg0-a.singapore-postgres.render.com/database_db_81rr'
+)
+_database_url = os.environ.get('DATABASE_URL', _default_postgres_url)
+# Ensure SSL for Render Postgres
+if 'sslmode=' not in _database_url:
+    connector = '&' if '?' in _database_url else '?'
+    _database_url = f"{_database_url}{connector}sslmode=require"
+
+# Single database for all tables
+app.config['SQLALCHEMY_DATABASE_URI'] = _database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
