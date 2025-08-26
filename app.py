@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import hashlib
 import secrets
@@ -11,7 +11,16 @@ from cryptography.fernet import Fernet
 import base64
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = secrets.token_hex(32)
+# Use stable secret from env if provided to persist sessions across restarts
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=180)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('SESSION_COOKIE_SECURE', '1') == '1')
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MB limit
+ALLOWED_EXTENSIONS = { 'png', 'jpg', 'jpeg', 'gif', 'webp' }
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Database configuration: Prefer env var, fallback to provided Render Postgres URL
 _default_postgres_url = (
@@ -323,6 +332,7 @@ def login():
             session['user_id'] = user.id
             session['username'] = user.username
             session['public_key'] = user.public_key
+            session.permanent = True  # respect PERMANENT_SESSION_LIFETIME
             
             # Update online status and session
             user.is_online = True
@@ -438,6 +448,67 @@ def update_profile():
     db.session.commit()
     
     return jsonify({'message': 'Profile updated successfully'})
+
+def _allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def _unique_filename(user_id, filename):
+    name, ext = os.path.splitext(filename)
+    token = secrets.token_hex(8)
+    safe_name = f"u{user_id}_{int(time.time())}_{token}{ext.lower()}"
+    return safe_name
+
+@app.route('/api/profile/upload-picture', methods=['POST'])
+def upload_profile_picture():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    if 'picture' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['picture']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    if not _allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type'}), 400
+    filename = _unique_filename(session['user_id'], file.filename)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(path)
+    rel_path = f"/uploads/{filename}"
+    user = User.query.get(session['user_id'])
+    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+    # Delete old file if exists
+    for existing in [user.profile_picture, getattr(profile, 'profile_picture', None)]:
+        if existing and existing.startswith('/uploads/'):
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(existing)))
+            except Exception:
+                pass
+    user.profile_picture = rel_path
+    if profile:
+        profile.profile_picture = rel_path
+    db.session.commit()
+    return jsonify({'message': 'Profile picture updated', 'url': rel_path})
+
+@app.route('/api/profile/delete-picture', methods=['POST'])
+def delete_profile_picture():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    user = User.query.get(session['user_id'])
+    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+    pic = user.profile_picture or (profile.profile_picture if profile else None)
+    if pic and pic.startswith('/uploads/'):
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(pic)))
+        except Exception:
+            pass
+    user.profile_picture = None
+    if profile:
+        profile.profile_picture = None
+    db.session.commit()
+    return jsonify({'message': 'Profile picture deleted'})
+
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/profile/change-username', methods=['POST'])
 def change_username():
@@ -589,6 +660,77 @@ def direct_chat(user_id):
     
     other_user = User.query.get(user_id)
     return render_template('direct_chat.html', other_user=other_user, friendship=friendship)
+
+@app.route('/api/chat/<int:user_id>/clear', methods=['POST'])
+def clear_chat(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    friendship = Friendship.query.filter(
+        db.or_(
+            db.and_(Friendship.user_id == session['user_id'], Friendship.friend_id == user_id),
+            db.and_(Friendship.user_id == user_id, Friendship.friend_id == session['user_id'])
+        )
+    ).first()
+    if not friendship:
+        return jsonify({'error': 'You can only clear chats with friends'}), 403
+    # Delete messages for this chat session
+    Message.query.filter_by(chat_session_id=friendship.chat_session_id).delete(synchronize_session=False)
+    # Reset related metadata
+    chat_session = ChatSession.query.get(friendship.chat_session_id)
+    if chat_session:
+        chat_session.last_message_at = datetime.utcnow()
+        chat_session.last_message_id = None
+        chat_session.unread_count_user1 = 0
+        chat_session.unread_count_user2 = 0
+    friendship.unread_count = 0
+    # Clear cache and read receipts
+    cache_key = f"{min(session['user_id'], user_id)}_{max(session['user_id'], user_id)}"
+    with cache_lock:
+        if cache_key in message_cache:
+            message_cache[cache_key] = []
+    with read_receipts_lock:
+        _read_receipts.pop(friendship.chat_session_id, None)
+    db.session.commit()
+    return jsonify({'message': 'Chat cleared'})
+
+@app.route('/api/account/delete', methods=['POST'])
+def delete_account():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    user_id = session['user_id']
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    # Remove profile picture file
+    if user.profile_picture and user.profile_picture.startswith('/uploads/'):
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(user.profile_picture)))
+        except Exception:
+            pass
+    profile = UserProfile.query.filter_by(user_id=user_id).first()
+    if profile and profile.profile_picture and profile.profile_picture.startswith('/uploads/'):
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(profile.profile_picture)))
+        except Exception:
+            pass
+    # Delete related records
+    MessageReaction.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    # Delete messages involving user
+    Message.query.filter(db.or_(Message.sender_id == user_id, Message.receiver_id == user_id)).delete(synchronize_session=False)
+    # Delete chat sessions involving user
+    ChatSession.query.filter(db.or_(ChatSession.user1_id == user_id, ChatSession.user2_id == user_id)).delete(synchronize_session=False)
+    # Delete friendships and requests
+    Friendship.query.filter(db.or_(Friendship.user_id == user_id, Friendship.friend_id == user_id)).delete(synchronize_session=False)
+    FriendRequest.query.filter(db.or_(FriendRequest.sender_id == user_id, FriendRequest.receiver_id == user_id)).delete(synchronize_session=False)
+    # Delete typing status
+    TypingStatus.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    # Delete profile
+    UserProfile.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    # Finally delete user
+    db.session.delete(user)
+    db.session.commit()
+    session.clear()
+    return jsonify({'message': 'Account deleted'})
 
 @app.route('/api/messages/<int:user_id>')
 def get_direct_messages(user_id):
