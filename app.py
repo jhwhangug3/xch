@@ -22,6 +22,10 @@ ALLOWED_EXTENSIONS = { 'png', 'jpg', 'jpeg', 'gif', 'webp' }
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+@app.route('/favicon.ico')
+def favicon():
+    return redirect(url_for('static', filename='images/fav.png'))
+
 # Database configuration: Prefer env var, fallback to provided Render Postgres URL
 _default_postgres_url = (
     'postgresql+psycopg://database_db_81rr_user:'
