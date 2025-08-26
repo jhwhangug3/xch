@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import json
 import hashlib
 import secrets
 import threading
@@ -47,6 +46,15 @@ message_cache = {}
 cache_lock = threading.Lock()
 user_sessions = {}
 session_lock = threading.Lock()
+# (Legacy in-memory kept but unused for Render reliability)
+typing_status = {}
+typing_lock = threading.Lock()
+_read_receipts = {}
+read_receipts_lock = threading.Lock()
+
+# Helper: normalize typing key consistently as strings
+def _typing_key(chat_session_id, user_id):
+    return (str(chat_session_id), str(user_id))
 
 # Enhanced Database Models with optimized structure
 class User(db.Model):
@@ -235,6 +243,12 @@ class MessageReaction(db.Model):
     
     # Composite unique constraint
     __table_args__ = (db.UniqueConstraint('message_id', 'user_id', 'reaction_type', name='unique_reaction'),)
+
+class TypingStatus(db.Model):
+    __tablename__ = 'typing_status'
+    chat_session_id = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, primary_key=True)
+    last_typing_at = db.Column(db.DateTime, index=True, nullable=False, default=datetime.utcnow)
 
 # Routes
 @app.route('/')
@@ -604,6 +618,35 @@ def get_direct_messages(user_id):
     for msg in unread_messages:
         msg.is_read = True
     db.session.commit()
+    # Track read receipts and update cache on initial load
+    if unread_messages:
+        # update cache
+        cache_key = f"{min(session['user_id'], user_id)}_{max(session['user_id'], user_id)}"
+        with cache_lock:
+            cached_list = []
+            for msg in messages:
+                cached_list.append({
+                    'id': msg.id,
+                    'content': msg.content,
+                    'sender_id': msg.sender_id,
+                    'receiver_id': msg.receiver_id,
+                    'is_read': msg.is_read,
+                    'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    'message_type': msg.message_type
+                })
+            message_cache[cache_key] = cached_list
+        # receipts
+        with read_receipts_lock:
+            rr = _read_receipts.setdefault(friendship.chat_session_id, [])
+            now_ts = time.time()
+            for m in unread_messages:
+                rr.append({'id': m.id, 'ts': now_ts})
+            if len(rr) > 500:
+                _read_receipts[friendship.chat_session_id] = rr[-500:]
+        try:
+            print(f"DEBUG read:init-load chat={friendship.chat_session_id} count={len(unread_messages)} ids={[m.id for m in unread_messages]}")
+        except Exception:
+            pass
     
     # Format messages for response
     formatted_messages = []
@@ -705,6 +748,102 @@ def send_direct_message():
         'message_type': message_type
     })
 
+# Typing indicators
+@app.route('/api/typing', methods=['POST'])
+def set_typing():
+    if 'user_id' not in session:
+        return jsonify({'ok': False}), 200
+    data = request.get_json() or {}
+    other_user_id = data.get('other_user_id')
+    is_typing = bool(data.get('is_typing', False))
+    if not other_user_id:
+        return jsonify({'error': 'other_user_id required'}), 400
+    # Find friendship to get chat_session_id
+    friendship = Friendship.query.filter(
+        db.or_(
+            db.and_(Friendship.user_id == session['user_id'], Friendship.friend_id == other_user_id),
+            db.and_(Friendship.user_id == other_user_id, Friendship.friend_id == session['user_id'])
+        )
+    ).first()
+    if not friendship:
+        return jsonify({'error': 'Not friends'}), 403
+    # Persist to DB to work across instances
+    ts = TypingStatus(
+        chat_session_id=friendship.chat_session_id,
+        user_id=session.get('user_id'),
+        last_typing_at=datetime.utcnow()
+    )
+    # upsert-like behavior
+    existing = TypingStatus.query.filter_by(chat_session_id=ts.chat_session_id, user_id=ts.user_id).first()
+    if existing:
+        existing.last_typing_at = ts.last_typing_at
+    else:
+        db.session.add(ts)
+    db.session.commit()
+    try:
+        print(f"DEBUG typing:set user={session['user_id']} other={other_user_id} chat={friendship.chat_session_id} is_typing={is_typing}")
+    except Exception:
+        pass
+    return jsonify({'ok': True})
+
+@app.route('/api/typing/ping', methods=['POST'])
+def typing_ping():
+    data = request.get_json() or {}
+    chat_session_id = data.get('chat_session_id')
+    typer_id = data.get('typer_id')
+    if not chat_session_id or not typer_id:
+        return jsonify({'ok': False}), 200
+    # Persist to DB
+    existing = TypingStatus.query.filter_by(chat_session_id=str(chat_session_id), user_id=int(typer_id)).first()
+    if existing:
+        existing.last_typing_at = datetime.utcnow()
+    else:
+        db.session.add(TypingStatus(chat_session_id=str(chat_session_id), user_id=int(typer_id), last_typing_at=datetime.utcnow()))
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/typing/state')
+def typing_state():
+    chat_session_id = request.args.get('chat_session_id')
+    other_id = request.args.get('other_id')
+    if not chat_session_id or not other_id:
+        return jsonify({'is_typing': False})
+    rec = TypingStatus.query.filter_by(chat_session_id=str(chat_session_id), user_id=int(other_id)).first()
+    is_typing = False
+    if rec and rec.last_typing_at:
+        is_typing = (datetime.utcnow() - rec.last_typing_at).total_seconds() < 4.0
+    return jsonify({'is_typing': is_typing})
+
+@app.route('/api/typing/<int:other_user_id>')
+def get_typing(other_user_id):
+    # Prefer explicit chat_session_id if provided (no auth needed)
+    chat_session_id = request.args.get('chat_session_id')
+    if not chat_session_id:
+        # Fall back to resolving via session
+        if 'user_id' not in session:
+            return jsonify({'is_typing': False})
+        friendship = Friendship.query.filter(
+            db.or_(
+                db.and_(Friendship.user_id == session['user_id'], Friendship.friend_id == other_user_id),
+                db.and_(Friendship.user_id == other_user_id, Friendship.friend_id == session['user_id'])
+            )
+        ).first()
+        if not friendship:
+            return jsonify({'is_typing': False})
+        chat_session_id = friendship.chat_session_id
+    # Check if the OTHER user is typing
+    # Read from DB (works across dynos/instances)
+    rec = TypingStatus.query.filter_by(chat_session_id=str(chat_session_id), user_id=int(other_user_id)).first()
+    is_typing = False
+    if rec and rec.last_typing_at:
+        delta = (datetime.utcnow() - rec.last_typing_at).total_seconds()
+        is_typing = delta < 4.0
+    try:
+        print(f"DEBUG typing:get requester={session['user_id']} other={other_user_id} chat={friendship.chat_session_id} is_typing={is_typing}")
+    except Exception:
+        pass
+    return jsonify({'is_typing': is_typing})
+
 # Ultra-fast message retrieval with caching
 @app.route('/api/messages/<int:user_id>/latest')
 def get_latest_messages(user_id):
@@ -739,13 +878,32 @@ def get_latest_messages(user_id):
                 # Return last 50 messages from cache
                 new_messages = cached_messages[-50:] if len(cached_messages) > 50 else cached_messages
             
-            # Mark messages as read
+            # Mark messages as read (for any new ones), and also catch same-second cases by scanning cache
             unread_ids = [msg['id'] for msg in new_messages if msg['sender_id'] == user_id and not msg['is_read']]
+            if not unread_ids:
+                # If no new messages triggered a read, still mark any unread from cache
+                unread_ids = [cm['id'] for cm in cached_messages if cm['sender_id'] == user_id and not cm['is_read']]
             if unread_ids:
                 Message.query.filter(Message.id.in_(unread_ids)).update({'is_read': True}, synchronize_session=False)
                 db.session.commit()
-            
-            return jsonify(new_messages)
+                # Update cache entries to reflect read status
+                for cm in cached_messages:
+                    if cm['id'] in unread_ids:
+                        cm['is_read'] = True
+                # Track read receipts
+                with read_receipts_lock:
+                    rr = _read_receipts.setdefault(friendship.chat_session_id, [])
+                    now_ts = time.time()
+                    for mid in unread_ids:
+                        rr.append({'id': mid, 'ts': now_ts})
+                    if len(rr) > 500:
+                        _read_receipts[friendship.chat_session_id] = rr[-500:]
+                try:
+                    print(f"DEBUG read:cache-marked chat={friendship.chat_session_id} count={len(unread_ids)} ids={unread_ids}")
+                except Exception:
+                    pass
+            # Include side-channel read_ids for immediate UI updates
+            return jsonify({'messages': new_messages, 'read_ids': unread_ids})
     
     # Fallback to database
     if last_timestamp:
@@ -763,6 +921,27 @@ def get_latest_messages(user_id):
     
     if unread_messages:
         db.session.commit()
+        # Update cache too
+        cache_key = f"{min(session['user_id'], user_id)}_{max(session['user_id'], user_id)}"
+        with cache_lock:
+            cached = message_cache.get(cache_key)
+            if cached:
+                unread_id_set = {m.id for m in unread_messages}
+                for cm in cached:
+                    if cm['id'] in unread_id_set:
+                        cm['is_read'] = True
+        # Track read receipts
+        with read_receipts_lock:
+            rr = _read_receipts.setdefault(friendship.chat_session_id, [])
+            now_ts = time.time()
+            for mid in [m.id for m in unread_messages]:
+                rr.append({'id': mid, 'ts': now_ts})
+            if len(rr) > 500:
+                _read_receipts[friendship.chat_session_id] = rr[-500:]
+        try:
+            print(f"DEBUG read:db-marked chat={friendship.chat_session_id} count={len(unread_messages)} ids={[m.id for m in unread_messages]}")
+        except Exception:
+            pass
     
     # Format and return messages
     formatted_messages = []
@@ -776,8 +955,42 @@ def get_latest_messages(user_id):
             'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'message_type': msg.message_type
         })
-    
-    return jsonify(formatted_messages)
+    # Include side-channel read_ids for immediate UI updates
+    read_ids = [m.id for m in unread_messages] if unread_messages else []
+    return jsonify({'messages': formatted_messages, 'read_ids': read_ids})
+
+@app.route('/api/messages/<int:user_id>/read-receipts')
+def get_read_receipts(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    friendship = Friendship.query.filter(
+        db.or_(
+            db.and_(Friendship.user_id == session['user_id'], Friendship.friend_id == user_id),
+            db.and_(Friendship.user_id == user_id, Friendship.friend_id == session['user_id'])
+        )
+    ).first()
+    if not friendship:
+        return jsonify({'read_ids': []})
+    since_param = request.args.get('since')
+    try:
+        since = float(since_param) if since_param is not None else 0.0
+    except Exception:
+        since = 0.0
+    with read_receipts_lock:
+        entries = _read_receipts.get(friendship.chat_session_id, [])
+        cutoff = time.time() - 60
+        pruned = [e for e in entries if e['ts'] >= cutoff]
+        if len(pruned) != len(entries):
+            _read_receipts[friendship.chat_session_id] = pruned
+        ready = [e for e in pruned if e['ts'] > since]
+        read_ids = [e['id'] for e in ready]
+        latest_ts = max([e['ts'] for e in ready], default=since)
+    now = time.time()
+    try:
+        print(f"DEBUG read:poll requester={session['user_id']} other={user_id} chat={friendship.chat_session_id} since={since} returning={read_ids}")
+    except Exception:
+        pass
+    return jsonify({'read_ids': read_ids, 'latest': latest_ts, 'now': now})
 
 # Utility Functions
 def get_user_friends(user_id):
@@ -831,14 +1044,15 @@ def init_database():
     try:
         with app.app_context():
             db.create_all()
-            print("✅ Database initialized successfully with all tables!")
-            print("🎉 Users, profiles, friendships, and messages tables ready!")
+            print("Database initialized successfully with all tables!")
+            print("Users, profiles, friendships, and messages tables ready!")
     except Exception as e:
-        print(f"❌ Database initialization failed: {e}")
+        print(f"Database initialization failed: {e}")
         # Don't crash the app, just log the error
 
 # Initialize database when app starts
 init_database()
+
 
 if __name__ == '__main__':
     app.run(debug=False, threaded=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
