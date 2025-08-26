@@ -1,649 +1,1181 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-    <title>Chat with {{ other_user.first_name or other_user.username }} - Advanced Chat App</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
-</head>
-<body>
+/* ===== MINIMAL BLACK & WHITE CHAT APP CSS ===== */
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Root design tokens */
+:root {
+    /* Pure Black & White Palette */
+    --black: #000000;
+    --white: #ffffff;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #e5e5e5;
+    --gray-300: #d4d4d4;
+    --gray-400: #a3a3a3;
+    --gray-500: #737373;
+    --gray-600: #525252;
+    --gray-700: #404040;
+    --gray-800: #262626;
+    --gray-900: #171717;
     
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-12">
-                <div class="chat-container">
-                    <!-- Chat Header -->
-                    <div class="chat-header" id="chatHeaderBar">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center gap-3">
-                                <a href="{{ url_for('dashboard') }}" class="back-button">
-                                    <i class="fas fa-arrow-left me-2"></i>Back
-                                </a>
-                                <div class="user-info">
-                                    <a href="{{ url_for('view_user_profile', user_id=other_user.id) }}" class="d-flex align-items-center text-decoration-none">
-                                        <div class="user-avatar overflow-hidden me-2">
-                                            {% if other_user.profile_picture %}
-                                                <img src="{{ other_user.profile_picture }}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
-                                            {% else %}
-                                                <i class="fas fa-user"></i>
-                                            {% endif %}
-                                        </div>
-                                        <div>
-                                            <h4 class="mb-0">{{ other_user.first_name or other_user.username }}</h4>
-                                            <div class="online-status">
-                                                {% if is_other_online %}
-                                                    <span class="online-indicator"></span>
-                                                    <small>Online</small>
-                                                {% else %}
-                                                    <span class="offline-indicator"></span>
-                                                    <small>Offline</small>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="dropstart">
-                                    <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="fas fa-ellipsis"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li><button class="dropdown-item text-danger" id="clearChatBtn"><i class="fas fa-trash me-2"></i>Clear chat</button></li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    /* Minimal Accents - Very Subtle */
+    --accent: #f3f4f6;
+    --accent-hover: #e5e7eb;
+    --border: #e5e5e5;
+    --border-hover: #d4d4d4;
+    
+    /* Spacing System - Clean Scale */
+    --space-1: 0.25rem;   /* 4px */
+    --space-2: 0.5rem;     /* 8px */
+    --space-3: 0.75rem;    /* 12px */
+    --space-4: 1rem;       /* 16px */
+    --space-5: 1.5rem;     /* 24px */
+    --space-6: 2rem;       /* 32px */
+    --space-8: 3rem;       /* 48px */
+    --space-10: 4rem;      /* 64px */
+    
+    /* Border Radius - Minimal */
+    --radius-sm: 0.25rem;  /* 4px */
+    --radius-md: 0.375rem; /* 6px */
+    --radius-lg: 0.5rem;   /* 8px */
+    --radius-xl: 0.75rem;  /* 12px */
+    
+    /* Shadows - Very Subtle */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08);
+    --shadow-md: 0 2px 4px 0 rgb(0 0 0 / 0.1);
+    
+    /* Transitions - Smooth */
+    --transition: 150ms ease;
+    --transition-slow: 250ms ease;
+}
 
-                    <!-- Chat Messages -->
-                    <div class="chat-messages" id="chatMessages">
-                        <div class="text-center text-muted mt-4">
-                            <i class="fas fa-comments fa-2x mb-2"></i>
-                            <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
-                        </div>
-                    </div>
+/* Base Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'SF Pro Display', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--black);
+    background: var(--white);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
 
-                    <!-- Chat Input -->
-                    <div class="chat-input" id="chatInputBar">
-                        <form id="messageForm" class="d-flex gap-2">
-                            <div class="position-relative flex-grow-1">
-                                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
-                                <div class="emoji-picker" id="emojiPicker">
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary" onclick="toggleEmojiPicker()">
-                                <i class="fas fa-smile"></i>
-                            </button>
-                            <button type="submit" class="btn btn-send">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+/* Typography - Clean and Minimal */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--black);
+    margin-bottom: var(--space-3);
+}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Set CSS var for input height so messages area avoids being covered
-        function setChatInputHeight() {
-            const bar = document.getElementById('chatInputBar');
-            if (!bar) return;
-            const h = bar.getBoundingClientRect().height;
-            document.documentElement.style.setProperty('--chat-input-h', h + 'px');
-        }
-        function setChatHeaderHeight() {
-            const bar = document.getElementById('chatHeaderBar');
-            if (!bar) return;
-            const h = bar.getBoundingClientRect().height;
-            document.documentElement.style.setProperty('--chat-header-h', h + 'px');
-        }
-        window.addEventListener('resize', setChatInputHeight);
-        window.addEventListener('orientationchange', setChatInputHeight);
-        document.addEventListener('DOMContentLoaded', setChatInputHeight);
-        window.addEventListener('resize', setChatHeaderHeight);
-        window.addEventListener('orientationchange', setChatHeaderHeight);
-        document.addEventListener('DOMContentLoaded', setChatHeaderHeight);
-        // Clear chat action
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('clearChatBtn');
-            if (btn) {
-                btn.addEventListener('click', async () => {
-                    if (!confirm('Clear this conversation? This deletes messages from the database.')) return;
-                    const res = await fetch('/api/chat/{{ other_user.id }}/clear', { method: 'POST' });
-                    const out = await res.json();
-                    if (res.ok) {
-                        const list = document.getElementById('chatMessages');
-                        list.innerHTML = `
-                            <div class="text-center text-muted mt-4">
-                                <i class="fas fa-comments fa-2x mb-2"></i>
-                                <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
-                            </div>
-                        `;
-                    } else {
-                        alert(out.error || 'Failed to clear chat');
-                    }
-                });
-            }
-        });
-        (function() {
-            const root = document.documentElement;
-            const stored = localStorage.getItem('theme');
-            if (stored === 'dark' || stored === 'light') {
-                root.setAttribute('data-theme', stored);
-            }
-            // Ask notification permission
-            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                try { Notification.requestPermission(); } catch (_) {}
-            }
-            function updateIcon(btn) {
-                const mode = root.getAttribute('data-theme');
-                btn.innerHTML = mode === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-            }
-            document.addEventListener('DOMContentLoaded', function() {
-                const btn = document.getElementById('themeToggle');
-                if (!btn) return;
-                updateIcon(btn);
-                btn.addEventListener('click', function() {
-                    const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                    root.setAttribute('data-theme', current);
-                    localStorage.setItem('theme', current);
-                    updateIcon(btn);
-                });
-            });
-        })();
-    </script>
-    <script>
-        class UltraFastChatApp {
-            constructor() {
-                this.messages = [];
-                this.currentUser = '{{ session.username }}';
-                this.otherUser = '{{ other_user.username }}';
-                this.otherUserId = {{ other_user.id }};
-                this.currentUserId = {{ session.user_id }};
-                this.messageForm = document.getElementById('messageForm');
-                this.messageInput = document.getElementById('messageInput');
-                this.chatMessages = document.getElementById('chatMessages');
-                this.isTyping = false;
-                this.lastMessageTimestamp = null;
-                this.pendingMessages = new Map(); // Track pending messages
-                this.messageQueue = []; // Queue for sending messages
-                this.isProcessingQueue = false;
-                this.lastRRCheckTs = 0; // last read-receipt check timestamp
-                this.otherIsTypingUntil = 0; // ms epoch until which we show typing
-                this.typingHeartbeat = null; // interval id for typing pings
-                
-                this.init();
-            }
+h1 { font-size: 1.75rem; font-weight: 600; }
+h2 { font-size: 1.5rem; font-weight: 600; }
+h3 { font-size: 1.25rem; font-weight: 500; }
+h4 { font-size: 1.125rem; font-weight: 500; }
+h5 { font-size: 1rem; font-weight: 500; }
+h6 { font-size: 0.875rem; font-weight: 500; }
 
-            init() {
-                this.loadMessages();
-                this.setupEventListeners();
-                this.startUltraFastPolling();
-                this.setupMessageQueue();
-                this.installVisibilityHooks();
-            }
+p {
+    margin-bottom: var(--space-3);
+    color: var(--gray-600);
+    line-height: 1.6;
+}
 
-            setupEventListeners() {
-                this.messageForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.sendMessage();
-                });
+/* Container and Layout */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+}
 
-                this.messageInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.sendMessage();
-                    }
-                });
+.container-fluid {
+    width: 100%;
+    padding: 0 var(--space-4);
+}
 
-                this.messageInput.addEventListener('input', async () => {
-                    // Send typing signal for the CURRENT user
-                    try {
-                        await fetch('/api/typing/ping', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
-                        });
-                    } catch (e) {}
+/* Card Components - Pure Minimal */
+.card {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    padding: var(--space-5);
+    margin-bottom: var(--space-4);
+    transition: var(--transition);
+}
 
-                    // Start/refresh heartbeat while user continues typing
-                    if (this.typingHeartbeat) clearInterval(this.typingHeartbeat);
-                    this.typingHeartbeat = setInterval(async () => {
-                        try {
-                            await fetch('/api/typing/ping', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
-                            });
-                        } catch (e) {}
-                    }, 1000);
-                    clearTimeout(this.typingTimeout);
-                    this.typingTimeout = setTimeout(async () => {
-                        try {
-                            await fetch('/api/typing/ping', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
-                            });
-                        } catch (e) {}
-                        if (this.typingHeartbeat) {
-                            clearInterval(this.typingHeartbeat);
-                            this.typingHeartbeat = null;
-                        }
-                    }, 1200);
-                });
-            }
+.card:hover {
+    border-color: var(--border-hover);
+}
 
-            async loadMessages() {
-                try {
-                    const response = await fetch(`/api/messages/${this.otherUserId}`);
-                    if (response.ok) {
-                        const messages = await response.json();
-                        this.messages = messages;
-                        this.displayMessages();
-                        
-                        // Set last timestamp for incremental updates
-                        if (messages.length > 0) {
-                            this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error loading messages:', error);
-                }
-            }
+.card-header {
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--gray-100);
+    margin-bottom: var(--space-4);
+}
 
-            async sendMessage() {
-                const content = this.messageInput.value.trim();
-                if (!content) return;
+.card-body {
+    padding: var(--space-4) 0;
+}
 
-                // Clear input immediately for better UX
-                this.messageInput.value = '';
+/* Form Elements - Clean Minimal */
+.form-group {
+    margin-bottom: var(--space-4);
+}
 
-                // Create temporary message for instant display
-                const tempMessage = {
-                    id: 'temp_' + Date.now(),
-                    content: content,
-                    message_type: 'text',
-                    sender_id: this.currentUserId,
-                    receiver_id: this.otherUserId,
-                    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-                    is_temp: true
-                };
+.form-label {
+    display: block;
+    font-weight: 500;
+    color: var(--black);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
 
-                // Add to pending messages
-                this.pendingMessages.set(tempMessage.id, tempMessage);
+.form-control {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    transition: var(--transition);
+    background: var(--white);
+    color: var(--black);
+}
 
-                // Display message immediately
-                this.messages.push(tempMessage);
-                this.displayMessages();
-                this.scrollToBottom();
+.form-control:focus {
+    outline: none;
+    border-color: var(--black);
+    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.1);
+}
 
-                // Add to message queue for sending
-                this.messageQueue.push({
-                    content: content,
-                    message_type: 'text',
-                    receiver_id: this.otherUserId
-                });
+.form-control::placeholder {
+    color: var(--gray-400);
+}
 
-                // Process queue if not already processing
-                if (!this.isProcessingQueue) {
-                    this.processMessageQueue();
-                }
-            }
+/* Floating Labels */
+.form-floating {
+    position: relative;
+    margin-bottom: var(--space-4);
+}
 
-            async processMessageQueue() {
-                if (this.isProcessingQueue || this.messageQueue.length === 0) return;
-                
-                this.isProcessingQueue = true;
-                
-                while (this.messageQueue.length > 0) {
-                    const messageData = this.messageQueue.shift();
-                    
-                    try {
-                        const response = await fetch('/api/messages/send', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(messageData)
-                        });
+.form-floating .form-control {
+    height: 3rem;
+    padding: 1rem var(--space-4) 0.5rem;
+}
 
-                        if (response.ok) {
-                            const sentMessage = await response.json();
-                            
-                            // Update the temporary message with real data
-                            const tempIndex = this.messages.findIndex(msg => 
-                                msg.is_temp && msg.content === messageData.content
-                            );
-                            
-                            if (tempIndex !== -1) {
-                                this.messages[tempIndex] = {
-                                    ...this.messages[tempIndex],
-                                    id: sentMessage.id,
-                                    is_temp: false
-                                };
-                                
-                                // Remove from pending
-                                this.pendingMessages.delete(this.messages[tempIndex].id);
-                            }
-                            
-                            this.displayMessages();
-                        }
-                    } catch (error) {
-                        console.error('Error sending message:', error);
-                        // Re-add to queue for retry
-                        this.messageQueue.unshift(messageData);
-                    }
-                }
-                
-                this.isProcessingQueue = false;
-            }
+.form-floating label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    padding: 0.75rem var(--space-4);
+    pointer-events: none;
+    transition: var(--transition-slow);
+    color: var(--gray-500);
+    font-size: 0.875rem;
+}
 
-            installVisibilityHooks() {
-                const burst = () => this.startReadBurst();
-                window.addEventListener('focus', burst);
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') burst();
-                });
-            }
+.form-floating .form-control:focus ~ label,
+.form-floating .form-control:not(:placeholder-shown) ~ label {
+    transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+    color: var(--black);
+}
 
-            setupTypingSocket() {
-                try {
-                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-                    const wsUrl = `${proto}://${location.host}/ws/typing/{{ friendship.chat_session_id }}`;
-                    this.typingWS = new WebSocket(wsUrl);
-                    this.typingWS.onmessage = (evt) => {
-                        try {
-                            const payload = JSON.parse(evt.data);
-                            if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
-                                this.otherIsTypingUntil = Date.now() + 2000;
-                                const existing = document.querySelector('.typing-indicator');
-                                if (!existing) {
-                                    const typingIndicator = document.createElement('div');
-                                    typingIndicator.className = 'typing-indicator';
-                                    typingIndicator.innerHTML = `
-                                        <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
-                                    this.chatMessages.appendChild(typingIndicator);
-                                    this.scrollToBottom();
-                                }
-                                clearTimeout(this.wsTypingTimeout);
-                                this.wsTypingTimeout = setTimeout(() => {
-                                    const ex = document.querySelector('.typing-indicator');
-                                    if (ex) ex.remove();
-                                }, 2200);
-                            }
-                        } catch (_) {}
-                    };
-                } catch (e) {}
-            }
+/* Buttons - Pure Minimal */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition);
+    gap: var(--space-2);
+    white-space: nowrap;
+    user-select: none;
+    min-height: 2.5rem;
+    line-height: 1;
+    background: var(--white);
+    color: var(--black);
+}
 
-            async checkForNewMessages() {
-                try {
-                    const url = this.lastMessageTimestamp 
-                        ? `/api/messages/${this.otherUserId}/latest?last_timestamp=${encodeURIComponent(this.lastMessageTimestamp)}`
-                        : `/api/messages/${this.otherUserId}/latest`;
-                    
-                    const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
-                    if (response.ok) {
-                        const payload = await response.json();
-                        const newMessages = Array.isArray(payload) ? payload : (payload.messages || []);
-                        const readIdsSide = Array.isArray(payload.read_ids) ? payload.read_ids : [];
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
-                        if (newMessages.length > 0) {
-                            // Add only truly new messages
-                            for (const newMsg of newMessages) {
-                                if (!this.messages.some(msg => msg.id === newMsg.id)) {
-                                    this.messages.push(newMsg);
-                                }
-                            }
-                            
-                            this.displayMessages();
-                            this.scrollToBottom();
-                            // Notify for incoming messages from the other user
-                            const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
-                            if (incoming.length > 0) {
-                                const last = incoming[incoming.length - 1];
-                                this.notifyNewMessage(this.otherUser, last.content || 'New message');
-                            }
-                            
-                            // Update timestamp
-                            this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
-                        }
+.btn-primary {
+    background: var(--black);
+    color: var(--white);
+    border-color: var(--black);
+}
 
-                        // Also process side-channel read ids immediately
-                        if (readIdsSide.length > 0) {
-                            for (const id of readIdsSide) {
-                                const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
-                                if (idx !== -1) this.messages[idx].is_read = true;
-                            }
-                            this.displayMessages();
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error checking for new messages:', error);
-                }
-            }
+.btn-primary:hover:not(:disabled) {
+    background: var(--gray-800);
+    border-color: var(--gray-800);
+}
 
-            displayMessages() {
-                if (this.messages.length === 0) {
-                    this.chatMessages.innerHTML = `
-                        <div class="text-center text-muted mt-4">
-                            <i class="fas fa-comments fa-2x mb-2"></i>
-                            <p>Start your conversation with ${this.otherUser}!</p>
-                        </div>
-                    `;
-                    return;
-                }
+.btn-secondary {
+    background: var(--white);
+    color: var(--black);
+    border-color: var(--border);
+}
 
-                const typingExisting = document.querySelector('.typing-indicator');
-                const typingHTML = typingExisting ? typingExisting.outerHTML : '';
-                this.chatMessages.innerHTML = this.messages.map(message => {
-                    const isOwn = message.sender_id === this.currentUserId;
-                    const messageClass = isOwn ? 'message own' : 'message';
-                    const time = new Date(message.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
+.btn-secondary:hover:not(:disabled) {
+    background: var(--gray-50);
+    border-color: var(--border-hover);
+}
 
-                    const isRead = Boolean(message.is_read);
-                    const statusClass = isRead ? 'read' : 'unread';
-                    const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
-                    const statusText = isRead ? 'Read' : 'Sent';
+.btn-outline {
+    background: transparent;
+    color: var(--black);
+    border-color: var(--black);
+}
 
-                    const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
-                    const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+.btn-outline:hover:not(:disabled) {
+    background: var(--black);
+    color: var(--white);
+}
 
-                    return `
-                        <div class="${messageClass} ${messageStatus}" data-message-id="${message.id}">
-                            <div class="message-info">
-                                ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
-                            </div>
-                            <div class="message-content">
-                                ${this.linkify(message.content)}
-                                ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
-                            </div>
-                        </div>
-                    `;
-                }).join('') + typingHTML;
+.btn-sm {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.75rem;
+    min-height: 2rem;
+}
 
-                this.scrollToBottom();
-            }
+.btn-lg {
+    padding: var(--space-4) var(--space-5);
+    font-size: 1rem;
+    min-height: 3rem;
+}
 
-            async pollTyping() {
-                try {
-                    const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
-                    if (!res.ok) return;
-                    const data = await res.json();
-                    const existing = document.querySelector('.typing-indicator');
-                    if (data.is_typing) {
-                        this.otherIsTypingUntil = Date.now() + 2000;
-                        if (!existing) {
-                            const typingIndicator = document.createElement('div');
-                            typingIndicator.className = 'typing-indicator';
-                            typingIndicator.innerHTML = `
-                                <small class="text-muted">
-                                    <i class="fas fa-pencil-alt me-1"></i>
-                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
-                                </small>`;
-                            this.chatMessages.appendChild(typingIndicator);
-                            this.scrollToBottom();
-                        }
-                    } else {
-                        // keep indicator a bit to avoid flicker
-                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
-                    }
-                } catch (e) {}
-            }
+/* ===== MODERN CHAT COMPONENTS ===== */
+.navbar-meow {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+}
+.navbar-meow .inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 var(--space-5);
+}
+.navbar-meow .brand img { height: 28px; display: block; }
+.navbar-meow .actions { display: flex; align-items: center; gap: var(--space-3); }
+.navbar-meow .avatar-btn { border: none; background: transparent; padding: 0; display: flex; align-items: center; cursor: pointer; }
+.navbar-meow .avatar-btn img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
 
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
+/* Expanded panel style (no dropdown) */
+.navbar-meow .panel { display: none; border-top: 1px solid var(--border); background: var(--white); }
+.navbar-meow.expanded .panel { display: block; }
+.navbar-meow .panel .content { display: flex; gap: var(--space-2); padding: var(--space-2) var(--space-5); }
+.navbar-meow .panel .link { padding: var(--space-2) var(--space-3); text-decoration: none; color: var(--black); border-radius: var(--radius-md); }
+.navbar-meow .panel .link:hover { background: var(--gray-50); }
+.chat-container {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    height: 90vh;
+    margin-top: 2vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
 
-            linkify(text) {
-                const escaped = this.escapeHtml(text);
-                const urlPattern = /((https?:\/\/|www\.)[\w.-]+\.[a-zA-Z]{2,}(\/[\w\-.~:%/?#\[\]@!$&'()*+,;=]*)?)/g;
-                const withLinks = escaped.replace(urlPattern, (match) => {
-                    const href = match.startsWith('http') ? match : `https://${match}`;
-                    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>`;
-                });
-                return withLinks.replace(/\n/g, '<br>');
-            }
+/* Chat Header - Modern & Clean */
+.chat-header {
+    background: var(--white);
+    color: var(--black);
+    padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
 
-            scrollToBottom() {
-                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-            }
+.chat-header .user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
 
-            startUltraFastPolling() {
-                // Check for new messages frequently
-                setInterval(() => { this.checkForNewMessages(); }, 600);
-                // Poll other user's typing status
-                setInterval(() => { this.pollTyping(); }, 300);
-                // Poll read receipts to update sent message status quickly
-                setInterval(() => { this.pollReadReceipts(); }, 600);
-                // Short burst right after opening
-                this.startReadBurst();
-            }
+.chat-header .user-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--gray-100);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-600);
+    font-size: 1.25rem;
+}
 
-            async pollReadReceipts() {
-                try {
-                    const res = await fetch(`/api/messages/${this.otherUserId}/read-receipts?since=${this.lastRRCheckTs}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
-                    if (!res.ok) return;
-                    const data = await res.json();
-                    if (Array.isArray(data.read_ids) && data.read_ids.length > 0) {
-                        // Mark corresponding outgoing messages as read in UI
-                        for (const id of data.read_ids) {
-                            const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
-                            if (idx !== -1) {
-                                this.messages[idx].is_read = true;
-                            }
-                        }
-                        this.displayMessages();
-                    }
-                    if (typeof data.latest === 'number') this.lastRRCheckTs = data.latest;
-                } catch (e) {}
-            }
+.chat-header .user-details h4 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--black);
+}
 
-            startReadBurst() {
-                const start = Date.now();
-                const burstInterval = setInterval(async () => {
-                    await this.pollReadReceipts();
-                    if (Date.now() - start > 3000) clearInterval(burstInterval);
-                }, 200);
-            }
+.chat-header .user-details small {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+}
 
-            setupMessageQueue() {
-                // Process message queue every 100ms for smooth sending
-                setInterval(() => {
-                    if (this.messageQueue.length > 0 && !this.isProcessingQueue) {
-                        this.processMessageQueue();
-                    }
-                }, 100);
-            }
+.chat-header .online-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
 
-            notifyNewMessage(fromName, text) {
-                try {
-                    const body = String(text).slice(0, 120);
-                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                        const n = new Notification(`${fromName}`, { body });
-                        setTimeout(() => { try { n.close(); } catch (_) {} }, 4000);
-                    }
-                    // Play a short tone when page is visible or hidden (browsers require user gesture; will work after first interaction)
-                    this.playTone();
-                } catch (_) {}
-            }
+/* Back Button - Modern Design */
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    color: var(--gray-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+}
 
-            playTone() {
-                try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioCtx) return;
-                    if (!this._audioCtx) this._audioCtx = new AudioCtx();
-                    const ctx = this._audioCtx;
-                    const o = ctx.createOscillator();
-                    const g = ctx.createGain();
-                    o.type = 'sine';
-                    o.frequency.value = 880;
-                    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-                    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
-                    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-                    o.connect(g).connect(ctx.destination);
-                    o.start();
-                    o.stop(ctx.currentTime + 0.32);
-                } catch (_) {}
-            }
-        }
+.back-button:hover {
+    color: var(--black);
+    background: var(--gray-50);
+}
 
-        // Emoji picker functionality
-        function toggleEmojiPicker() {
-            const picker = document.getElementById('emojiPicker');
-            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
-        }
+/* Chat Messages - Clean & Modern */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-5);
+    padding-top: calc(var(--chat-header-h, 72px));
+    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom));
+    background: var(--gray-50);
+    -webkit-overflow-scrolling: touch;
+}
 
-        function addEmoji(emoji) {
-            const input = document.getElementById('messageInput');
-            input.value += emoji;
-            input.focus();
-            document.getElementById('emojiPicker').style.display = 'none';
-        }
+.message {
+    margin-bottom: var(--space-4);
+    animation: fadeInUp 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+}
 
-        // Close emoji picker when clicking outside
-        document.addEventListener('click', function(event) {
-            const picker = document.getElementById('emojiPicker');
-            const emojiButton = event.target.closest('button');
-            
-            if (!picker.contains(event.target) && !emojiButton) {
-                picker.style.display = 'none';
-            }
-        });
+.message.own {
+    align-items: flex-end;
+}
 
-        // Initialize ultra-fast chat app when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new UltraFastChatApp();
-        });
-    </script>
-</body>
-<script>
-    (function(){
-        document.addEventListener('DOMContentLoaded', function(){
-            const btn = document.getElementById('navAvatarBtn');
-            const menu = document.getElementById('navMenu');
-            if (!btn || !menu) return;
-            btn.addEventListener('click', function(){
-                menu.classList.toggle('show');
-            });
-            document.addEventListener('click', function(e){
-                if (!menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.classList.remove('show');
-                }
-            });
-        });
-    })();
-</script>
-</html>
+.message-content {
+    background: var(--white);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-xl);
+    max-width: 70%;
+    word-wrap: break-word;
+    position: relative;
+    border: 1px solid var(--gray-100);
+    box-shadow: var(--shadow-xs);
+    line-height: 1.4;
+    /* Auto-size to content */
+    width: fit-content;
+    min-width: 60px;
+}
+
+.message.own .message-content {
+    background: var(--black);
+    color: var(--white);
+    border-color: var(--black);
+}
+
+/* Message Info - Better Typography */
+.message-info {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-bottom: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 500;
+}
+
+.message.own .message-info {
+    color: var(--gray-400);
+    justify-content: flex-end;
+}
+
+/* Message Status - Modern Indicators */
+.message-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 0.75rem;
+    margin-top: var(--space-2);
+    opacity: 0.8;
+}
+
+.message-status.read {
+    color: var(--gray-400);
+}
+
+.message-status.unread {
+    color: var(--gray-500);
+}
+
+.message-status i {
+    font-size: 0.625rem;
+}
+
+/* Chat Input - Modern Design */
+.chat-input {
+    padding: var(--space-4) var(--space-5);
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+}
+
+.chat-input form {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+}
+
+.chat-input .form-control {
+    flex: 1;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    padding: var(--space-3) var(--space-4);
+    font-size: 16px; /* prevent iOS zoom on focus */
+    resize: none;
+    min-height: 2.5rem;
+    max-height: 120px;
+    line-height: 1.4;
+}
+
+.chat-input .form-control:focus {
+    outline: none;
+    border-color: var(--black);
+    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.1);
+}
+
+/* Send Button - Modern Design */
+.btn-send {
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-xl);
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-send:hover {
+    background: var(--gray-800);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-send i {
+    font-size: 0.875rem;
+}
+
+/* Dashboard Components - Clean Layout */
+.dashboard-container {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    margin-top: 2vh;
+    min-height: 90vh;
+    overflow: hidden;
+}
+
+.sidebar {
+    background: var(--black);
+    color: var(--white);
+    padding: var(--space-5);
+    height: 100%;
+}
+
+.sidebar .nav-link {
+    color: var(--gray-300);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-2);
+    transition: var(--transition);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-decoration: none;
+    min-height: 2.5rem;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    color: var(--white);
+    background: var(--gray-800);
+}
+
+.main-content {
+    padding: var(--space-5);
+}
+
+/* User Cards - Minimal */
+.user-card {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.user-card:hover {
+    border-color: var(--border-hover);
+}
+
+/* Status Indicators - Subtle */
+.online-indicator,
+.offline-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: var(--space-2);
+}
+
+.online-indicator {
+    background: var(--gray-600);
+}
+
+.offline-indicator {
+    background: var(--gray-300);
+}
+
+/* Search Components - Clean */
+.search-box {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    margin-bottom: var(--space-4);
+    transition: var(--transition);
+}
+
+.search-box:focus-within {
+    border-color: var(--black);
+    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.1);
+}
+
+.search-results {
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    -webkit-overflow-scrolling: touch;
+}
+
+.search-result-item {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--gray-100);
+    cursor: pointer;
+    transition: var(--transition);
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.search-result-item:hover {
+    background: var(--gray-50);
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+/* Stats Cards - Minimal */
+.stats-card {
+    background: var(--white);
+    color: var(--black);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    text-align: center;
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border);
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    color: var(--black);
+}
+
+/* Profile Components - Clean */
+.profile-container {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    padding: var(--space-8);
+}
+
+.profile-header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    background: var(--black);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-5);
+    font-size: 2.5rem;
+    color: var(--white);
+}
+
+.section-card {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    margin-bottom: var(--space-5);
+    border: 1px solid var(--border);
+}
+
+.section-title {
+    color: var(--black);
+    font-weight: 500;
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+/* Theme Toggle - Minimal */
+.theme-toggle {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.theme-option {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+    min-width: 80px;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--white);
+    color: var(--black);
+}
+
+.theme-option:hover {
+    border-color: var(--black);
+}
+
+.theme-option.active {
+    border-color: var(--black);
+    background: var(--black);
+    color: var(--white);
+}
+
+/* Alerts - Subtle */
+.alert {
+    border-radius: var(--radius-md);
+    border: 1px solid;
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: 0.875rem;
+}
+
+.alert-success {
+    background: var(--gray-50);
+    color: var(--gray-700);
+    border-color: var(--gray-300);
+}
+
+.alert-danger {
+    background: var(--gray-50);
+    color: var(--gray-700);
+    border-color: var(--gray-300);
+}
+
+/* Emoji Picker - Clean */
+.emoji-picker {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-4);
+    display: none;
+    z-index: 1000;
+}
+
+.emoji-item {
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+    display: inline-block;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    text-align: center;
+    line-height: 2.5rem;
+}
+
+.emoji-item:hover {
+    background: var(--gray-100);
+}
+
+/* Animations - Subtle */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.2s ease-in;
+}
+
+/* Utility Classes - Minimal */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-5 { margin-bottom: var(--space-5); }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+
+.d-flex { display: flex; }
+.d-none { display: none; }
+.d-block { display: block; }
+
+.justify-content-center { justify-content: center; }
+.justify-content-between { justify-content: space-between; }
+.justify-content-end { justify-content: flex-end; }
+
+.align-items-center { align-items: center; }
+.align-items-start { align-items: flex-start; }
+.align-items-end { align-items: flex-end; }
+
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-5 { gap: var(--space-5); }
+
+.flex-column { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+
+.w-100 { width: 100%; }
+.h-100 { height: 100%; }
+
+.position-relative { position: relative; }
+.position-absolute { position: absolute; }
+
+/* Mobile-First Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 var(--space-3);
+    }
+    
+    .card {
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+    }
+    
+    .chat-container {
+        height: 95vh;
+        margin-top: 1vh;
+        border-radius: var(--radius-lg);
+    }
+    
+    .chat-header {
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    
+    .chat-messages {
+        padding: var(--space-3);
+    }
+    
+    .chat-input {
+        padding: var(--space-3) var(--space-4);
+    }
+    
+    .dashboard-container {
+        margin-top: 1vh;
+        border-radius: var(--radius-lg);
+    }
+    
+    .sidebar {
+        padding: var(--space-4);
+        border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    }
+    
+    .main-content {
+        padding: var(--space-4);
+    }
+    
+    .profile-container {
+        padding: var(--space-5);
+        border-radius: var(--radius-lg);
+    }
+    
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+    }
+    
+    .section-card {
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+    }
+    
+    .btn {
+        padding: var(--space-3) var(--space-4);
+        font-size: 0.875rem;
+    }
+    
+    .stats-card {
+        padding: var(--space-4);
+    }
+    
+    .stats-number {
+        font-size: 1.75rem;
+    }
+    
+    .message-content {
+        max-width: 85%;
+    }
+    
+    .emoji-picker {
+        right: -50%;
+        width: 280px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 var(--space-2);
+    }
+    
+    .card {
+        padding: var(--space-3);
+    }
+    
+    .chat-container {
+        height: 98vh;
+        margin-top: 0.5vh;
+        border-radius: var(--radius-md);
+    }
+    
+    .chat-header {
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+    
+    .chat-messages {
+        padding: var(--space-2);
+    }
+    
+    .chat-input {
+        padding: var(--space-2) var(--space-3);
+    }
+    
+    .dashboard-container {
+        margin-top: 0.5vh;
+        border-radius: var(--radius-md);
+    }
+    
+    .sidebar {
+        padding: var(--space-3);
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
+    }
+    
+    .main-content {
+        padding: var(--space-3);
+    }
+    
+    .profile-container {
+        padding: var(--space-4);
+        border-radius: var(--radius-md);
+    }
+    
+    .profile-avatar {
+        width: 70px;
+        height: 70px;
+        font-size: 1.75rem;
+    }
+    
+    .section-card {
+        padding: var(--space-3);
+    }
+    
+    .btn {
+        padding: var(--space-2) var(--space-3);
+        font-size: 0.8rem;
+        min-height: 2.25rem;
+    }
+    
+    .stats-card {
+        padding: var(--space-3);
+    }
+    
+    .stats-number {
+        font-size: 1.5rem;
+    }
+    
+    .message-content {
+        max-width: 90%;
+        padding: var(--space-2) var(--space-3);
+    }
+    
+    .emoji-picker {
+        right: -100%;
+        width: 240px;
+        padding: var(--space-3);
+    }
+    
+    .emoji-item {
+        font-size: 1rem;
+        padding: var(--space-1);
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        line-height: 2.25rem;
+    }
+    
+    .theme-toggle {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+    
+    .theme-option {
+        min-width: 100%;
+        min-height: 2.25rem;
+    }
+}
+
+/* High DPI Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .card,
+    .chat-container,
+    .dashboard-container,
+    .profile-container {
+        border-width: 0.5px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --black: #ffffff;
+        --white: #0b0b0b;
+        --gray-50: #0f0f0f;
+        --gray-100: #1a1a1a;
+        --gray-200: #262626;
+        --gray-300: #333333;
+        --gray-400: #4d4d4d;
+        --gray-500: #808080;
+        --gray-600: #a3a3a3;
+        --gray-700: #c7c7c7;
+        --gray-800: #e5e5e5;
+        --gray-900: #fafafa;
+        --border: #2a2a2a;
+        --border-hover: #3a3a3a;
+    }
+}
+
+/* Explicit dark theme override via data attribute */
+[data-theme="dark"] {
+    --black: #ffffff;
+    --white: #0b0b0b;
+    --gray-50: #0f0f0f;
+    --gray-100: #1a1a1a;
+    --gray-200: #262626;
+    --gray-300: #333333;
+    --gray-400: #4d4d4d;
+    --gray-500: #808080;
+    --gray-600: #a3a3a3;
+    --gray-700: #c7c7c7;
+    --gray-800: #e5e5e5;
+    --gray-900: #fafafa;
+    --border: #2a2a2a;
+    --border-hover: #3a3a3a;
+}
+
+/* Improve outline button variants for readability in both themes */
+.btn-outline-light {
+    background: transparent;
+    color: var(--black);
+    border: 1px solid var(--border);
+}
+.btn-outline-light:hover:not(:disabled) {
+    background: var(--gray-50);
+    color: var(--black);
+    border-color: var(--border-hover);
+}
+
+.btn-outline-dark {
+    background: transparent;
+    color: var(--black);
+    border: 1px solid var(--black);
+}
+.btn-outline-dark:hover:not(:disabled) {
+    background: var(--black);
+    color: var(--white);
+}
+
+/* Print Styles */
+@media print {
+    .chat-container,
+    .dashboard-container,
+    .profile-container {
+        box-shadow: none;
+        border: 1px solid var(--gray-300);
+    }
+    
+    .btn,
+    .emoji-picker {
+        display: none;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+    .btn:hover {
+        transform: none;
+    }
+    
+    .user-card:hover {
+        transform: none;
+        border-color: var(--border);
+    }
+    
+    .sidebar .nav-link:hover {
+        transform: none;
+    }
+    
+    .theme-option:hover {
+        transform: none;
+    }
+    
+    .emoji-item:hover {
+        transform: none;
+    }
+    
+    /* Increase touch targets */
+    .btn {
+        min-height: 2.75rem;
+    }
+    
+    .sidebar .nav-link {
+        min-height: 2.75rem;
+    }
+    
+    .search-result-item {
+        min-height: 2.75rem;
+    }
+    
+    .emoji-item {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        line-height: 2.75rem;
+    }
+}
+
+/* Landscape Mobile Optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+    .chat-container {
+        height: 92vh;
+        margin-top: 1vh;
+    }
+    
+    .dashboard-container {
+        margin-top: 1vh;
+    }
+    
+    .profile-container {
+        padding: var(--space-4);
+    }
+    
+    .sidebar {
+        padding: var(--space-3);
+    }
+    
+    .main-content {
+        padding: var(--space-3);
+    }
+}
