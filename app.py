@@ -94,7 +94,6 @@ class User(db.Model):
     bio = db.Column(db.Text)
     profile_picture = db.Column(db.String(200))
     is_online = db.Column(db.Boolean, default=False, index=True)
-    last_seen = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     public_key = db.Column(db.Text, index=True)  # For E2E encryption
@@ -130,7 +129,6 @@ class User(db.Model):
             'bio': self.bio,
             'profile_picture': self.profile_picture,
             'is_online': self.is_online,
-            'last_seen': self.last_seen.isoformat() if self.last_seen else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'public_key': self.public_key
         }
@@ -377,7 +375,6 @@ def login():
             
             # Update online status and session
             user.is_online = True
-            user.last_seen = datetime.utcnow()
             user.last_login = datetime.utcnow()
             
             # Store user session for fast access
@@ -404,7 +401,6 @@ def logout():
         user = User.query.get(session['user_id'])
         if user:
             user.is_online = False
-            user.last_seen = datetime.utcnow()
             db.session.commit()
         
         # Remove from active sessions
@@ -666,7 +662,6 @@ def search_users():
         'first_name': user.first_name,
         'last_name': user.last_name,
         'is_online': user.is_online,
-        'last_seen': user.last_seen.strftime('%Y-%m-%d %H:%M:%S') if user.last_seen else None,
         'public_key': user.public_key
     } for user in users])
 
@@ -769,9 +764,8 @@ def direct_chat(user_id):
     
     me = User.query.get(session['user_id'])
     other_user = User.query.get(user_id)
-    # Compute freshness-based online indicator
-    recent_seconds = (datetime.utcnow() - (other_user.last_seen or datetime.utcnow())).total_seconds() if other_user else 9999
-    is_other_online = bool(other_user and other_user.is_online and recent_seconds < 120)
+    # Simple online indicator based on is_online flag
+    is_other_online = bool(other_user and other_user.is_online)
     return render_template('direct_chat.html', me=me, other_user=other_user, friendship=friendship, is_other_online=is_other_online)
 
 @app.route('/api/chat/<int:user_id>/clear', methods=['POST'])
@@ -1297,16 +1291,12 @@ def get_user_friends(user_id):
     for friendship in friendships:
         friend = User.query.get(friendship.friend_id)
         if friend:
-            # compute online freshness: online if last_seen within 120 seconds and active flag
-            recent_seconds = (datetime.utcnow() - (friend.last_seen or datetime.utcnow())).total_seconds()
-            computed_online = bool(friend.is_online and recent_seconds < 120)
             friends.append({
                 'id': friend.id,
                 'username': friend.username,
                 'first_name': friend.first_name,
                 'last_name': friend.last_name,
-                'is_online': computed_online,
-                'last_seen': friend.last_seen.strftime('%Y-%m-%d %H:%M:%S') if friend.last_seen else None,
+                'is_online': friend.is_online,
                 'public_key': friend.public_key,
                 'chat_session_id': friendship.chat_session_id,
                 'unread_count': friendship.unread_count,
