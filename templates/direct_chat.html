@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with {{ other_user.first_name or other_user.username }} - Advanced Chat App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="chat-container">
+                    <!-- Chat Header -->
+                    <div class="chat-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <a href="{{ url_for('dashboard') }}" class="back-button">
+                                    <i class="fas fa-arrow-left me-2"></i>Back
+                                </a>
+                                <div class="user-info">
+                                    <a href="{{ url_for('view_user_profile', user_id=other_user.id) }}" class="d-flex align-items-center text-decoration-none">
+                                        <div class="user-avatar overflow-hidden me-2">
+                                            {% if other_user.profile_picture %}
+                                                <img src="{{ other_user.profile_picture }}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+                                            {% else %}
+                                                <i class="fas fa-user"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h4 class="mb-0">{{ other_user.first_name or other_user.username }}</h4>
+                                            <div class="online-status">
+                                                {% if is_other_online %}
+                                                    <span class="online-indicator"></span>
+                                                    <small>Online</small>
+                                                {% else %}
+                                                    <span class="offline-indicator"></span>
+                                                    <small>Last seen {{ other_user.last_seen.strftime('%H:%M') if other_user.last_seen else 'Unknown' }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="dropstart">
+                                    <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><button class="dropdown-item text-danger" id="clearChatBtn"><i class="fas fa-trash me-2"></i>Clear chat</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="text-center text-muted mt-4">
+                            <i class="fas fa-comments fa-2x mb-2"></i>
+                            <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="chat-input">
+                        <form id="messageForm" class="d-flex gap-2">
+                            <div class="position-relative flex-grow-1">
+                                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
+                                <div class="emoji-picker" id="emojiPicker">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="emoji-item" onclick="addEmoji('😊')">😊</span>
+                                        <span class="emoji-item" onclick="addEmoji('❤️')">❤️</span>
+                                        <span class="emoji-item" onclick="addEmoji('😂')">😂</span>
+                                        <span class="emoji-item" onclick="addEmoji('👍')">👍</span>
+                                        <span class="emoji-item" onclick="addEmoji('🎉')">🎉</span>
+                                        <span class="emoji-item" onclick="addEmoji('🔥')">🔥</span>
+                                        <span class="emoji-item" onclick="addEmoji('😎')">😎</span>
+                                        <span class="emoji-item" onclick="addEmoji('🤔')">🤔</span>
+                                        <span class="emoji-item" onclick="addEmoji('👋')">👋</span>
+                                        <span class="emoji-item" onclick="addEmoji('💯')">💯</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary" onclick="toggleEmojiPicker()">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <button type="submit" class="btn btn-send">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Clear chat action
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('clearChatBtn');
+            if (btn) {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Clear this conversation? This deletes messages from the database.')) return;
+                    const res = await fetch('/api/chat/{{ other_user.id }}/clear', { method: 'POST' });
+                    const out = await res.json();
+                    if (res.ok) {
+                        const list = document.getElementById('chatMessages');
+                        list.innerHTML = `
+                            <div class="text-center text-muted mt-4">
+                                <i class="fas fa-comments fa-2x mb-2"></i>
+                                <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
+                            </div>
+                        `;
+                    } else {
+                        alert(out.error || 'Failed to clear chat');
+                    }
+                });
+            }
+        });
+        (function() {
+            const root = document.documentElement;
+            const stored = localStorage.getItem('theme');
+            if (stored === 'dark' || stored === 'light') {
+                root.setAttribute('data-theme', stored);
+            }
+            function updateIcon(btn) {
+                const mode = root.getAttribute('data-theme');
+                btn.innerHTML = mode === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                const btn = document.getElementById('themeToggle');
+                if (!btn) return;
+                updateIcon(btn);
+                btn.addEventListener('click', function() {
+                    const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                    root.setAttribute('data-theme', current);
+                    localStorage.setItem('theme', current);
+                    updateIcon(btn);
+                });
+            });
+        })();
+    </script>
+    <script>
+        class UltraFastChatApp {
+            constructor() {
+                this.messages = [];
+                this.currentUser = '{{ session.username }}';
+                this.otherUser = '{{ other_user.username }}';
+                this.otherUserId = {{ other_user.id }};
+                this.currentUserId = {{ session.user_id }};
+                this.messageForm = document.getElementById('messageForm');
+                this.messageInput = document.getElementById('messageInput');
+                this.chatMessages = document.getElementById('chatMessages');
+                this.isTyping = false;
+                this.lastMessageTimestamp = null;
+                this.pendingMessages = new Map(); // Track pending messages
+                this.messageQueue = []; // Queue for sending messages
+                this.isProcessingQueue = false;
+                this.lastRRCheckTs = 0; // last read-receipt check timestamp
+                this.otherIsTypingUntil = 0; // ms epoch until which we show typing
+                this.typingHeartbeat = null; // interval id for typing pings
+                
+                this.init();
+            }
+
+            init() {
+                this.loadMessages();
+                this.setupEventListeners();
+                this.startUltraFastPolling();
+                this.setupMessageQueue();
+                this.installVisibilityHooks();
+            }
+
+            setupEventListeners() {
+                this.messageForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
+
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                this.messageInput.addEventListener('input', async () => {
+                    // Send typing signal for the CURRENT user
+                    try {
+                        await fetch('/api/typing/ping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                        });
+                    } catch (e) {}
+
+                    // Start/refresh heartbeat while user continues typing
+                    if (this.typingHeartbeat) clearInterval(this.typingHeartbeat);
+                    this.typingHeartbeat = setInterval(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
+                    }, 1000);
+                    clearTimeout(this.typingTimeout);
+                    this.typingTimeout = setTimeout(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
+                        if (this.typingHeartbeat) {
+                            clearInterval(this.typingHeartbeat);
+                            this.typingHeartbeat = null;
+                        }
+                    }, 1200);
+                });
+            }
+
+            async loadMessages() {
+                try {
+                    const response = await fetch(`/api/messages/${this.otherUserId}`);
+                    if (response.ok) {
+                        const messages = await response.json();
+                        this.messages = messages;
+                        this.displayMessages();
+                        
+                        // Set last timestamp for incremental updates
+                        if (messages.length > 0) {
+                            this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                }
+            }
+
+            async sendMessage() {
+                const content = this.messageInput.value.trim();
+                if (!content) return;
+
+                // Clear input immediately for better UX
+                this.messageInput.value = '';
+
+                // Create temporary message for instant display
+                const tempMessage = {
+                    id: 'temp_' + Date.now(),
+                    content: content,
+                    message_type: 'text',
+                    sender_id: this.currentUserId,
+                    receiver_id: this.otherUserId,
+                    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                    is_temp: true
+                };
+
+                // Add to pending messages
+                this.pendingMessages.set(tempMessage.id, tempMessage);
+
+                // Display message immediately
+                this.messages.push(tempMessage);
+                this.displayMessages();
+                this.scrollToBottom();
+
+                // Add to message queue for sending
+                this.messageQueue.push({
+                    content: content,
+                    message_type: 'text',
+                    receiver_id: this.otherUserId
+                });
+
+                // Process queue if not already processing
+                if (!this.isProcessingQueue) {
+                    this.processMessageQueue();
+                }
+            }
+
+            async processMessageQueue() {
+                if (this.isProcessingQueue || this.messageQueue.length === 0) return;
+                
+                this.isProcessingQueue = true;
+                
+                while (this.messageQueue.length > 0) {
+                    const messageData = this.messageQueue.shift();
+                    
+                    try {
+                        const response = await fetch('/api/messages/send', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(messageData)
+                        });
+
+                        if (response.ok) {
+                            const sentMessage = await response.json();
+                            
+                            // Update the temporary message with real data
+                            const tempIndex = this.messages.findIndex(msg => 
+                                msg.is_temp && msg.content === messageData.content
+                            );
+                            
+                            if (tempIndex !== -1) {
+                                this.messages[tempIndex] = {
+                                    ...this.messages[tempIndex],
+                                    id: sentMessage.id,
+                                    is_temp: false
+                                };
+                                
+                                // Remove from pending
+                                this.pendingMessages.delete(this.messages[tempIndex].id);
+                            }
+                            
+                            this.displayMessages();
+                        }
+                    } catch (error) {
+                        console.error('Error sending message:', error);
+                        // Re-add to queue for retry
+                        this.messageQueue.unshift(messageData);
+                    }
+                }
+                
+                this.isProcessingQueue = false;
+            }
+
+            installVisibilityHooks() {
+                const burst = () => this.startReadBurst();
+                window.addEventListener('focus', burst);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') burst();
+                });
+            }
+
+            setupTypingSocket() {
+                try {
+                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+                    const wsUrl = `${proto}://${location.host}/ws/typing/{{ friendship.chat_session_id }}`;
+                    this.typingWS = new WebSocket(wsUrl);
+                    this.typingWS.onmessage = (evt) => {
+                        try {
+                            const payload = JSON.parse(evt.data);
+                            if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
+                                this.otherIsTypingUntil = Date.now() + 2000;
+                                const existing = document.querySelector('.typing-indicator');
+                                if (!existing) {
+                                    const typingIndicator = document.createElement('div');
+                                    typingIndicator.className = 'typing-indicator';
+                                    typingIndicator.innerHTML = `
+                                        <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    this.scrollToBottom();
+                                }
+                                clearTimeout(this.wsTypingTimeout);
+                                this.wsTypingTimeout = setTimeout(() => {
+                                    const ex = document.querySelector('.typing-indicator');
+                                    if (ex) ex.remove();
+                                }, 2200);
+                            }
+                        } catch (_) {}
+                    };
+                } catch (e) {}
+            }
+
+            async checkForNewMessages() {
+                try {
+                    const url = this.lastMessageTimestamp 
+                        ? `/api/messages/${this.otherUserId}/latest?last_timestamp=${encodeURIComponent(this.lastMessageTimestamp)}`
+                        : `/api/messages/${this.otherUserId}/latest`;
+                    
+                    const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
+                    if (response.ok) {
+                        const payload = await response.json();
+                        const newMessages = Array.isArray(payload) ? payload : (payload.messages || []);
+                        const readIdsSide = Array.isArray(payload.read_ids) ? payload.read_ids : [];
+
+                        if (newMessages.length > 0) {
+                            // Add only truly new messages
+                            for (const newMsg of newMessages) {
+                                if (!this.messages.some(msg => msg.id === newMsg.id)) {
+                                    this.messages.push(newMsg);
+                                }
+                            }
+                            
+                            this.displayMessages();
+                            this.scrollToBottom();
+                            
+                            // Update timestamp
+                            this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
+                        }
+
+                        // Also process side-channel read ids immediately
+                        if (readIdsSide.length > 0) {
+                            for (const id of readIdsSide) {
+                                const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                                if (idx !== -1) this.messages[idx].is_read = true;
+                            }
+                            this.displayMessages();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking for new messages:', error);
+                }
+            }
+
+            displayMessages() {
+                if (this.messages.length === 0) {
+                    this.chatMessages.innerHTML = `
+                        <div class="text-center text-muted mt-4">
+                            <i class="fas fa-comments fa-2x mb-2"></i>
+                            <p>Start your conversation with ${this.otherUser}!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const typingExisting = document.querySelector('.typing-indicator');
+                const typingHTML = typingExisting ? typingExisting.outerHTML : '';
+                this.chatMessages.innerHTML = this.messages.map(message => {
+                    const isOwn = message.sender_id === this.currentUserId;
+                    const messageClass = isOwn ? 'message own' : 'message';
+                    const time = new Date(message.timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+
+                    const isRead = Boolean(message.is_read);
+                    const statusClass = isRead ? 'read' : 'unread';
+                    const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                    const statusText = isRead ? 'Read' : 'Sent';
+
+                    const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
+                    const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+
+                    return `
+                        <div class="${messageClass} ${messageStatus}" data-message-id="${message.id}">
+                            <div class="message-info">
+                                ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
+                            </div>
+                            <div class="message-content">
+                                ${this.linkify(message.content)}
+                                ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('') + typingHTML;
+
+                this.scrollToBottom();
+            }
+
+            async pollTyping() {
+                try {
+                    const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const existing = document.querySelector('.typing-indicator');
+                    if (data.is_typing) {
+                        this.otherIsTypingUntil = Date.now() + 2000;
+                        if (!existing) {
+                            const typingIndicator = document.createElement('div');
+                            typingIndicator.className = 'typing-indicator';
+                            typingIndicator.innerHTML = `
+                                <small class="text-muted">
+                                    <i class="fas fa-pencil-alt me-1"></i>
+                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                </small>`;
+                            this.chatMessages.appendChild(typingIndicator);
+                            this.scrollToBottom();
+                        }
+                    } else {
+                        // keep indicator a bit to avoid flicker
+                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
+                    }
+                } catch (e) {}
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            linkify(text) {
+                const escaped = this.escapeHtml(text);
+                const urlPattern = /((https?:\/\/|www\.)[\w.-]+\.[a-zA-Z]{2,}(\/[\w\-.~:%/?#\[\]@!$&'()*+,;=]*)?)/g;
+                const withLinks = escaped.replace(urlPattern, (match) => {
+                    const href = match.startsWith('http') ? match : `https://${match}`;
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+                });
+                return withLinks.replace(/\n/g, '<br>');
+            }
+
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+
+            startUltraFastPolling() {
+                // Check for new messages frequently
+                setInterval(() => { this.checkForNewMessages(); }, 600);
+                // Poll other user's typing status
+                setInterval(() => { this.pollTyping(); }, 300);
+                // Poll read receipts to update sent message status quickly
+                setInterval(() => { this.pollReadReceipts(); }, 600);
+                // Short burst right after opening
+                this.startReadBurst();
+            }
+
+            async pollReadReceipts() {
+                try {
+                    const res = await fetch(`/api/messages/${this.otherUserId}/read-receipts?since=${this.lastRRCheckTs}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (Array.isArray(data.read_ids) && data.read_ids.length > 0) {
+                        // Mark corresponding outgoing messages as read in UI
+                        for (const id of data.read_ids) {
+                            const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                            if (idx !== -1) {
+                                this.messages[idx].is_read = true;
+                            }
+                        }
+                        this.displayMessages();
+                    }
+                    if (typeof data.latest === 'number') this.lastRRCheckTs = data.latest;
+                } catch (e) {}
+            }
+
+            startReadBurst() {
+                const start = Date.now();
+                const burstInterval = setInterval(async () => {
+                    await this.pollReadReceipts();
+                    if (Date.now() - start > 3000) clearInterval(burstInterval);
+                }, 200);
+            }
+
+            setupMessageQueue() {
+                // Process message queue every 100ms for smooth sending
+                setInterval(() => {
+                    if (this.messageQueue.length > 0 && !this.isProcessingQueue) {
+                        this.processMessageQueue();
+                    }
+                }, 100);
+            }
+        }
+
+        // Emoji picker functionality
+        function toggleEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addEmoji(emoji) {
+            const input = document.getElementById('messageInput');
+            input.value += emoji;
+            input.focus();
+            document.getElementById('emojiPicker').style.display = 'none';
+        }
+
+        // Close emoji picker when clicking outside
+        document.addEventListener('click', function(event) {
+            const picker = document.getElementById('emojiPicker');
+            const emojiButton = event.target.closest('button');
+            
+            if (!picker.contains(event.target) && !emojiButton) {
+                picker.style.display = 'none';
+            }
+        });
+
+        // Initialize ultra-fast chat app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new UltraFastChatApp();
+        });
+    </script>
+</body>
+</html>
