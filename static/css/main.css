@@ -370,6 +370,7 @@ p {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-5);
+    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom));
     background: var(--gray-50);
     -webkit-overflow-scrolling: touch;
 }
@@ -450,9 +451,11 @@ p {
     padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
     background: var(--white);
     border-top: 1px solid var(--border);
-    position: sticky;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
-    z-index: 5;
+    z-index: 100;
 }
 
 .chat-input form {
