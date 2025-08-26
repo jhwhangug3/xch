@@ -11,7 +11,13 @@ import secrets
 import threading
 import time
 from cryptography.fernet import Fernet
-from pywebpush import webpush, WebPushException
+try:
+    from pywebpush import webpush, WebPushException
+    PUSH_AVAILABLE = True
+except ImportError:
+    PUSH_AVAILABLE = False
+    webpush = None
+    WebPushException = Exception
 import json
 import base64
 
@@ -565,12 +571,16 @@ VAPID_CLAIMS = {
 
 @app.route('/api/notifications/vapid-public-key')
 def vapid_public_key():
+    if not PUSH_AVAILABLE:
+        return jsonify({'error': 'Push notifications not available'}), 503
     if not VAPID_PUBLIC_KEY:
         return jsonify({'error': 'VAPID not configured'}), 503
     return jsonify({'key': VAPID_PUBLIC_KEY})
 
 @app.route('/api/notifications/subscribe', methods=['POST'])
 def subscribe_notifications():
+    if not PUSH_AVAILABLE:
+        return jsonify({'error': 'Push notifications not available'}), 503
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     data = request.get_json() or {}
@@ -597,6 +607,8 @@ def subscribe_notifications():
 
 @app.route('/api/notifications/unsubscribe', methods=['POST'])
 def unsubscribe_notifications():
+    if not PUSH_AVAILABLE:
+        return jsonify({'error': 'Push notifications not available'}), 503
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     data = request.get_json() or {}
@@ -994,8 +1006,8 @@ def send_direct_message():
     db.session.commit()
 
     # Send Web Push notification to receiver (if configured)
-    try:
-        if VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY:
+    if PUSH_AVAILABLE and VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY:
+        try:
             subs = PushSubscription.query.filter_by(user_id=receiver_id).all()
             if subs:
                 payload = json.dumps({
@@ -1021,8 +1033,8 @@ def send_direct_message():
                             print(f"WebPush failed: {e}")
                         except Exception:
                             pass
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     return jsonify({
         'id': new_message.id,
