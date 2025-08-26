@@ -70,14 +70,13 @@
                     <!-- Chat Input -->
                     <div class="chat-input" id="chatInputBar">
                         <form id="messageForm" class="d-flex gap-2">
-                            <div class="position-relative flex-grow-1">
-                                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
-                                <div class="emoji-picker" id="emojiPicker">
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary" onclick="toggleEmojiPicker()">
-                                <i class="fas fa-smile"></i>
-                            </button>
+                                                         <div class="position-relative flex-grow-1">
+                                 <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
+                                 <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
+                             </div>
+                                                         <button type="button" class="btn btn-outline-secondary btn-attach" onclick="attachFile()">
+                                 <i class="fas fa-plus"></i>
+                             </button>
                             <button type="submit" class="btn btn-send">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -153,19 +152,35 @@
             const btn = document.getElementById('clearChatBtn');
             if (btn) {
                 btn.addEventListener('click', async () => {
-                    if (!confirm('Clear this conversation? This deletes messages from the database.')) return;
-                    const res = await fetch('/api/chat/{{ other_user.id }}/clear', { method: 'POST' });
-                    const out = await res.json();
-                    if (res.ok) {
-                        const list = document.getElementById('chatMessages');
-                        list.innerHTML = `
-                            <div class="text-center text-muted mt-4">
-                                <i class="fas fa-comments fa-2x mb-2"></i>
-                                <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
-                            </div>
-                        `;
-                    } else {
-                        alert(out.error || 'Failed to clear chat');
+                    if (!confirm('Clear this conversation? This will permanently delete ALL messages, images, files, and chat history from the database. This action cannot be undone.')) return;
+                    
+                    try {
+                        const res = await fetch('/api/chat/{{ other_user.id }}/clear', { method: 'POST' });
+                        const out = await res.json();
+                        if (res.ok) {
+                            // Clear local messages array
+                            if (window.ultraFastChatApp) {
+                                window.ultraFastChatApp.messages = [];
+                                window.ultraFastChatApp.lastMessageTimestamp = null;
+                            }
+                            
+                            // Clear UI
+                            const list = document.getElementById('chatMessages');
+                            list.innerHTML = `
+                                <div class="text-center text-muted mt-4">
+                                    <i class="fas fa-comments fa-2x mb-2"></i>
+                                    <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
+                                </div>
+                            `;
+                            
+                            // Show success message
+                            alert('Chat history has been completely cleared. All messages, images, and files have been permanently deleted.');
+                        } else {
+                            alert(out.error || 'Failed to clear chat');
+                        }
+                    } catch (error) {
+                        console.error('Error clearing chat:', error);
+                        alert('Failed to clear chat. Please try again.');
                     }
                 });
             }
@@ -292,10 +307,11 @@
                             this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
                         }
                         
-                        // Ensure scroll to bottom after messages are loaded and displayed
-                        setTimeout(() => {
-                            this.scrollToBottom(true);
-                        }, 100);
+                        // Multiple scroll attempts to guarantee bottom positioning
+                        this.scrollToBottom(true);
+                        setTimeout(() => this.scrollToBottom(true), 50);
+                        setTimeout(() => this.scrollToBottom(true), 150);
+                        setTimeout(() => this.scrollToBottom(true), 300);
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
@@ -326,10 +342,11 @@
                 // Display message immediately
                 this.messages.push(tempMessage);
                 this.displayMessages();
-                // Scroll to bottom immediately for sent messages
-                setTimeout(() => {
-                    this.scrollToBottom(true);
-                }, 10);
+                // Aggressive scroll to bottom for sent messages
+                this.scrollToBottom(true);
+                setTimeout(() => this.scrollToBottom(true), 5);
+                setTimeout(() => this.scrollToBottom(true), 25);
+                setTimeout(() => this.scrollToBottom(true), 75);
 
                 // Add to message queue for sending
                 this.messageQueue.push({
@@ -417,10 +434,11 @@
                                     typingIndicator.innerHTML = `
                                         <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
                                                                          this.chatMessages.appendChild(typingIndicator);
-                                     // Scroll to bottom when typing indicator appears
-                                     setTimeout(() => {
-                                         this.scrollToBottom(true);
-                                     }, 10);
+                                     // Aggressive scroll to bottom when typing indicator appears
+                                     this.scrollToBottom(true);
+                                     setTimeout(() => this.scrollToBottom(true), 5);
+                                     setTimeout(() => this.scrollToBottom(true), 25);
+                                     setTimeout(() => this.scrollToBottom(true), 75);
                                  }
                                  clearTimeout(this.wsTypingTimeout);
                                 this.wsTypingTimeout = setTimeout(() => {
@@ -454,10 +472,11 @@
                             }
                             
                             this.displayMessages();
-                            // Scroll to bottom for new messages
-                            setTimeout(() => {
-                                this.scrollToBottom(true);
-                            }, 50);
+                            // Aggressive scroll to bottom for new messages
+                            this.scrollToBottom(true);
+                            setTimeout(() => this.scrollToBottom(true), 25);
+                            setTimeout(() => this.scrollToBottom(true), 75);
+                            setTimeout(() => this.scrollToBottom(true), 150);
                             // Notify for incoming messages from the other user
                             const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
                             if (incoming.length > 0) {
@@ -499,9 +518,12 @@
                 this.chatMessages.innerHTML = this.messages.map(message => {
                     const isOwn = message.sender_id === this.currentUserId;
                     const messageClass = isOwn ? 'message own' : 'message';
-                    const time = new Date(message.timestamp).toLocaleTimeString([], { 
+                    // Convert UTC timestamp to local time
+                    const utcDate = new Date(message.timestamp + 'Z'); // Add Z to treat as UTC
+                    const time = utcDate.toLocaleTimeString([], { 
                         hour: '2-digit', 
-                        minute: '2-digit' 
+                        minute: '2-digit',
+                        hour12: true
                     });
 
                     const isRead = Boolean(message.is_read);
@@ -525,10 +547,11 @@
                     `;
                 }).join('') + typingHTML;
 
-                // Scroll to bottom after displaying messages
-                setTimeout(() => {
-                    this.scrollToBottom(true);
-                }, 10);
+                // Aggressive scroll to bottom after displaying messages
+                this.scrollToBottom(true);
+                setTimeout(() => this.scrollToBottom(true), 5);
+                setTimeout(() => this.scrollToBottom(true), 25);
+                setTimeout(() => this.scrollToBottom(true), 75);
             }
 
             async pollTyping() {
@@ -548,10 +571,11 @@
                                     ${this.otherUser} is typing<span class="typing-dots">...</span>
                                 </small>`;
                                                          this.chatMessages.appendChild(typingIndicator);
-                             // Scroll to bottom when typing indicator appears
-                             setTimeout(() => {
-                                 this.scrollToBottom(true);
-                             }, 10);
+                             // Aggressive scroll to bottom when typing indicator appears
+                             this.scrollToBottom(true);
+                             setTimeout(() => this.scrollToBottom(true), 5);
+                             setTimeout(() => this.scrollToBottom(true), 25);
+                             setTimeout(() => this.scrollToBottom(true), 75);
                          }
                     } else {
                         // keep indicator a bit to avoid flicker
@@ -579,37 +603,49 @@
             scrollToBottom(force = false) {
                 if (!this.chatMessages) return;
                 
-                // Use requestAnimationFrame for smooth scrolling
-                requestAnimationFrame(() => {
+                // Multiple guaranteed approaches to scroll to bottom
+                const scrollToBottomGuaranteed = () => {
                     try {
-                        const scrollHeight = this.chatMessages.scrollHeight;
-                        const clientHeight = this.chatMessages.clientHeight;
-                        const maxScrollTop = scrollHeight - clientHeight;
+                        // Method 1: Direct scrollTop assignment
+                        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                         
-                        // Always scroll to bottom, but smoothly if not forced
-                        if (force) {
-                            this.chatMessages.scrollTop = maxScrollTop;
-                        } else {
-                            // Smooth scroll if we're close to bottom, instant if far
-                            const currentScrollTop = this.chatMessages.scrollTop;
-                            const distanceFromBottom = maxScrollTop - currentScrollTop;
-                            
-                            if (distanceFromBottom > 100) {
-                                // Far from bottom, scroll instantly
-                                this.chatMessages.scrollTop = maxScrollTop;
-                            } else {
-                                // Close to bottom, scroll smoothly
+                        // Method 2: Use scrollTo with fallback
+                        setTimeout(() => {
+                            try {
                                 this.chatMessages.scrollTo({
-                                    top: maxScrollTop,
-                                    behavior: 'smooth'
+                                    top: this.chatMessages.scrollHeight,
+                                    behavior: force ? 'auto' : 'smooth'
                                 });
+                            } catch (e) {
+                                // Method 3: Force scroll with scrollTop
+                                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                             }
-                        }
+                        }, 10);
+                        
+                        // Method 4: Double-check after a short delay
+                        setTimeout(() => {
+                            if (this.chatMessages.scrollTop < this.chatMessages.scrollHeight - 10) {
+                                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                            }
+                        }, 50);
+                        
+                        // Method 5: Final verification after layout
+                        setTimeout(() => {
+                            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                        }, 100);
+                        
                     } catch (e) {
-                        // Fallback to simple scroll
+                        // Ultimate fallback
                         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                     }
-                });
+                };
+                
+                // Use requestAnimationFrame for smooth performance
+                if (force) {
+                    scrollToBottomGuaranteed();
+                } else {
+                    requestAnimationFrame(scrollToBottomGuaranteed);
+                }
             }
 
             startUltraFastPolling() {
@@ -691,26 +727,23 @@
             }
         }
 
-        // Emoji picker functionality
-        function toggleEmojiPicker() {
-            const picker = document.getElementById('emojiPicker');
-            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        // File attachment functionality
+        function attachFile() {
+            document.getElementById('fileInput').click();
         }
 
-        function addEmoji(emoji) {
-            const input = document.getElementById('messageInput');
-            input.value += emoji;
-            input.focus();
-            document.getElementById('emojiPicker').style.display = 'none';
-        }
-
-        // Close emoji picker when clicking outside
-        document.addEventListener('click', function(event) {
-            const picker = document.getElementById('emojiPicker');
-            const emojiButton = event.target.closest('button');
-            
-            if (!picker.contains(event.target) && !emojiButton) {
-                picker.style.display = 'none';
+        // Handle file selection
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // For now, just show the filename in the input
+                // In a full implementation, you'd upload the file and send a file message
+                const input = document.getElementById('messageInput');
+                input.value = `📎 ${file.name}`;
+                input.focus();
+                
+                // Reset file input
+                event.target.value = '';
             }
         });
 
@@ -718,15 +751,41 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Add chat-active class to body to prevent page scrolling
             document.body.classList.add('chat-active');
-            new UltraFastChatApp();
+            window.ultraFastChatApp = new UltraFastChatApp();
             
-            // Ensure scroll to bottom after a short delay to handle any layout issues
-            setTimeout(() => {
-                const chatMessages = document.getElementById('chatMessages');
-                if (chatMessages) {
+            // Multiple aggressive scroll attempts to guarantee bottom positioning
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                // Immediate scroll
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Multiple delayed scrolls to handle any layout issues
+                setTimeout(() => {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 50);
+                setTimeout(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 150);
+                setTimeout(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 300);
+                setTimeout(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 500);
+                setTimeout(() => {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 1000);
+            }
+            
+            // Continuous scroll monitoring to prevent messages from being hidden
+            setInterval(() => {
+                if (chatMessages && chatMessages.scrollHeight > chatMessages.clientHeight) {
+                    const distanceFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
+                    if (distanceFromBottom > 50) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
                 }
-            }, 200);
+            }, 1000);
         });
 
         // Clean up when leaving the page
