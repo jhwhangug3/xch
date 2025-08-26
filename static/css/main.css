@@ -6,6 +6,7 @@
     box-sizing: border-box;
 }
 
+/* Root design tokens */
 :root {
     /* Pure Black & White Palette */
     --black: #000000;
@@ -1004,20 +1005,60 @@ p {
 @media (prefers-color-scheme: dark) {
     :root {
         --black: #ffffff;
-        --white: #000000;
-        --gray-50: #171717;
-        --gray-100: #262626;
-        --gray-200: #404040;
-        --gray-300: #525252;
-        --gray-400: #737373;
-        --gray-500: #a3a3a3;
-        --gray-600: #d4d4d4;
-        --gray-700: #e5e5e5;
-        --gray-800: #f5f5f5;
+        --white: #0b0b0b;
+        --gray-50: #0f0f0f;
+        --gray-100: #1a1a1a;
+        --gray-200: #262626;
+        --gray-300: #333333;
+        --gray-400: #4d4d4d;
+        --gray-500: #808080;
+        --gray-600: #a3a3a3;
+        --gray-700: #c7c7c7;
+        --gray-800: #e5e5e5;
         --gray-900: #fafafa;
-        --border: #404040;
-        --border-hover: #525252;
+        --border: #2a2a2a;
+        --border-hover: #3a3a3a;
     }
+}
+
+/* Explicit dark theme override via data attribute */
+[data-theme="dark"] {
+    --black: #ffffff;
+    --white: #0b0b0b;
+    --gray-50: #0f0f0f;
+    --gray-100: #1a1a1a;
+    --gray-200: #262626;
+    --gray-300: #333333;
+    --gray-400: #4d4d4d;
+    --gray-500: #808080;
+    --gray-600: #a3a3a3;
+    --gray-700: #c7c7c7;
+    --gray-800: #e5e5e5;
+    --gray-900: #fafafa;
+    --border: #2a2a2a;
+    --border-hover: #3a3a3a;
+}
+
+/* Improve outline button variants for readability in both themes */
+.btn-outline-light {
+    background: transparent;
+    color: var(--black);
+    border: 1px solid var(--border);
+}
+.btn-outline-light:hover:not(:disabled) {
+    background: var(--gray-50);
+    color: var(--black);
+    border-color: var(--border-hover);
+}
+
+.btn-outline-dark {
+    background: transparent;
+    color: var(--black);
+    border: 1px solid var(--black);
+}
+.btn-outline-dark:hover:not(:disabled) {
+    background: var(--black);
+    color: var(--white);
 }
 
 /* Print Styles */
