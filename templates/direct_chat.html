@@ -10,6 +10,30 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
 </head>
 <body>
+    <nav class="navbar-meow">
+        <div class="inner">
+            <a class="brand" href="{{ url_for('dashboard') }}">
+                <img src="{{ url_for('static', filename='images/nav.png') }}" alt="meowCHAT"/>
+            </a>
+            <div class="actions position-relative">
+                <button id="navAvatarBtn" class="avatar-btn">
+                    {% if session.user_id %}
+                        {% set me = User.query.get(session.user_id) %}
+                    {% endif %}
+                    {% if me and me.profile_picture %}
+                        <img src="{{ me.profile_picture }}" alt=""/>
+                    {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ session.username }}" alt=""/>
+                    {% endif %}
+                </button>
+                <div id="navMenu" class="menu">
+                    <a href="{{ url_for('dashboard') }}"><i class="fas fa-home me-2"></i>Dashboard</a>
+                    <a href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Profile</a>
+                    <a href="{{ url_for('logout') }}" class="text-danger"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
@@ -38,7 +62,7 @@
                                                     <small>Online</small>
                                                 {% else %}
                                                     <span class="offline-indicator"></span>
-                                                    <small>Last seen {{ other_user.last_seen.strftime('%H:%M') if other_user.last_seen else 'Unknown' }}</small>
+                                                    <small>Offline</small>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -580,4 +604,21 @@
         });
     </script>
 </body>
+<script>
+    (function(){
+        document.addEventListener('DOMContentLoaded', function(){
+            const btn = document.getElementById('navAvatarBtn');
+            const menu = document.getElementById('navMenu');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function(){
+                menu.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e){
+                if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.classList.remove('show');
+                }
+            });
+        });
+    })();
+</script>
 </html>
