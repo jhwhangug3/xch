@@ -67,6 +67,14 @@ body {
     -webkit-text-size-adjust: 100%;
 }
 
+/* Prevent body scroll when chat is active */
+body.chat-active {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
 /* Typography - Clean and Minimal */
 h1, h2, h3, h4, h5, h6 {
     font-weight: 500;
@@ -297,6 +305,8 @@ p {
     flex-direction: column;
     overflow: hidden;
     box-shadow: none;
+    position: relative;
+    isolation: isolate;
 }
 
 /* Chat Header - Modern & Clean */
@@ -373,11 +383,16 @@ p {
 .chat-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-5);
     padding-top: calc(var(--chat-header-h, 72px));
     padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom));
     background: var(--gray-50);
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    position: relative;
+    height: 100%;
+    min-height: 0;
 }
 
 .message {
@@ -880,6 +895,9 @@ p {
     
     .chat-messages {
         padding: var(--space-3);
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scroll-snap-type: y proximity;
     }
     
     .chat-input {
