@@ -291,6 +291,11 @@
                         if (messages.length > 0) {
                             this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
                         }
+                        
+                        // Ensure scroll to bottom after messages are loaded and displayed
+                        setTimeout(() => {
+                            this.scrollToBottom(true);
+                        }, 100);
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
@@ -321,7 +326,10 @@
                 // Display message immediately
                 this.messages.push(tempMessage);
                 this.displayMessages();
-                this.scrollToBottom();
+                // Scroll to bottom immediately for sent messages
+                setTimeout(() => {
+                    this.scrollToBottom(true);
+                }, 10);
 
                 // Add to message queue for sending
                 this.messageQueue.push({
@@ -408,10 +416,13 @@
                                     typingIndicator.className = 'typing-indicator';
                                     typingIndicator.innerHTML = `
                                         <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
-                                    this.chatMessages.appendChild(typingIndicator);
-                                    this.scrollToBottom();
-                                }
-                                clearTimeout(this.wsTypingTimeout);
+                                                                         this.chatMessages.appendChild(typingIndicator);
+                                     // Scroll to bottom when typing indicator appears
+                                     setTimeout(() => {
+                                         this.scrollToBottom(true);
+                                     }, 10);
+                                 }
+                                 clearTimeout(this.wsTypingTimeout);
                                 this.wsTypingTimeout = setTimeout(() => {
                                     const ex = document.querySelector('.typing-indicator');
                                     if (ex) ex.remove();
@@ -443,7 +454,10 @@
                             }
                             
                             this.displayMessages();
-                            this.scrollToBottom();
+                            // Scroll to bottom for new messages
+                            setTimeout(() => {
+                                this.scrollToBottom(true);
+                            }, 50);
                             // Notify for incoming messages from the other user
                             const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
                             if (incoming.length > 0) {
@@ -511,7 +525,10 @@
                     `;
                 }).join('') + typingHTML;
 
-                this.scrollToBottom();
+                // Scroll to bottom after displaying messages
+                setTimeout(() => {
+                    this.scrollToBottom(true);
+                }, 10);
             }
 
             async pollTyping() {
@@ -530,9 +547,12 @@
                                     <i class="fas fa-pencil-alt me-1"></i>
                                     ${this.otherUser} is typing<span class="typing-dots">...</span>
                                 </small>`;
-                            this.chatMessages.appendChild(typingIndicator);
-                            this.scrollToBottom();
-                        }
+                                                         this.chatMessages.appendChild(typingIndicator);
+                             // Scroll to bottom when typing indicator appears
+                             setTimeout(() => {
+                                 this.scrollToBottom(true);
+                             }, 10);
+                         }
                     } else {
                         // keep indicator a bit to avoid flicker
                         if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
@@ -556,8 +576,40 @@
                 return withLinks.replace(/\n/g, '<br>');
             }
 
-            scrollToBottom() {
-                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            scrollToBottom(force = false) {
+                if (!this.chatMessages) return;
+                
+                // Use requestAnimationFrame for smooth scrolling
+                requestAnimationFrame(() => {
+                    try {
+                        const scrollHeight = this.chatMessages.scrollHeight;
+                        const clientHeight = this.chatMessages.clientHeight;
+                        const maxScrollTop = scrollHeight - clientHeight;
+                        
+                        // Always scroll to bottom, but smoothly if not forced
+                        if (force) {
+                            this.chatMessages.scrollTop = maxScrollTop;
+                        } else {
+                            // Smooth scroll if we're close to bottom, instant if far
+                            const currentScrollTop = this.chatMessages.scrollTop;
+                            const distanceFromBottom = maxScrollTop - currentScrollTop;
+                            
+                            if (distanceFromBottom > 100) {
+                                // Far from bottom, scroll instantly
+                                this.chatMessages.scrollTop = maxScrollTop;
+                            } else {
+                                // Close to bottom, scroll smoothly
+                                this.chatMessages.scrollTo({
+                                    top: maxScrollTop,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        // Fallback to simple scroll
+                        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                    }
+                });
             }
 
             startUltraFastPolling() {
@@ -667,6 +719,14 @@
             // Add chat-active class to body to prevent page scrolling
             document.body.classList.add('chat-active');
             new UltraFastChatApp();
+            
+            // Ensure scroll to bottom after a short delay to handle any layout issues
+            setTimeout(() => {
+                const chatMessages = document.getElementById('chatMessages');
+                if (chatMessages) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            }, 200);
         });
 
         // Clean up when leaving the page
