@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+from io import BytesIO
+import base64
 import os
 import hashlib
 import secrets
@@ -263,6 +265,12 @@ class TypingStatus(db.Model):
     user_id = db.Column(db.Integer, primary_key=True)
     last_typing_at = db.Column(db.DateTime, index=True, nullable=False, default=datetime.utcnow)
 
+class Avatar(db.Model):
+    __tablename__ = 'avatars'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    mime_type = db.Column(db.String(50), nullable=False)
+    data_b64 = db.Column(db.Text, nullable=False)
+
 # Routes
 @app.route('/')
 def index():
@@ -420,7 +428,8 @@ def view_user_profile(user_id):
         return redirect(url_for('dashboard'))
     profile = UserProfile.query.filter_by(user_id=user_id).first()
     friends = get_user_friends(user_id)
-    return render_template('user_profile.html', user=user, profile=profile, friends=friends)
+    me = User.query.get(session['user_id'])
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
 
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
@@ -474,19 +483,21 @@ def upload_profile_picture():
         return jsonify({'error': 'No selected file'}), 400
     if not _allowed_file(file.filename):
         return jsonify({'error': 'Invalid file type'}), 400
-    filename = _unique_filename(session['user_id'], file.filename)
-    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(path)
-    rel_path = f"/uploads/{filename}"
+    # Read file bytes and store in DB (base64) for persistence across restarts
+    blob = file.read()
+    mime = file.mimetype or 'image/png'
+    encoded = base64.b64encode(blob).decode('ascii')
+    # Upsert avatar
+    existing = Avatar.query.filter_by(user_id=session['user_id']).first()
+    if existing:
+        existing.mime_type = mime
+        existing.data_b64 = encoded
+    else:
+        db.session.add(Avatar(user_id=session['user_id'], mime_type=mime, data_b64=encoded))
+    # Point profile_picture to served endpoint
+    rel_path = url_for('get_avatar', user_id=session['user_id'])
     user = User.query.get(session['user_id'])
     profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
-    # Delete old file if exists
-    for existing in [user.profile_picture, getattr(profile, 'profile_picture', None)]:
-        if existing and existing.startswith('/uploads/'):
-            try:
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(existing)))
-            except Exception:
-                pass
     user.profile_picture = rel_path
     if profile:
         profile.profile_picture = rel_path
@@ -499,12 +510,8 @@ def delete_profile_picture():
         return jsonify({'error': 'Not authenticated'}), 401
     user = User.query.get(session['user_id'])
     profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
-    pic = user.profile_picture or (profile.profile_picture if profile else None)
-    if pic and pic.startswith('/uploads/'):
-        try:
-            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(pic)))
-        except Exception:
-            pass
+    # Remove from DB avatar storage
+    Avatar.query.filter_by(user_id=session['user_id']).delete(synchronize_session=False)
     user.profile_picture = None
     if profile:
         profile.profile_picture = None
@@ -514,6 +521,17 @@ def delete_profile_picture():
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/api/avatar/<int:user_id>')
+def get_avatar(user_id):
+    avatar = Avatar.query.filter_by(user_id=user_id).first()
+    if not avatar:
+        return jsonify({'error': 'not found'}), 404
+    try:
+        raw = base64.b64decode(avatar.data_b64)
+    except Exception:
+        return jsonify({'error': 'corrupt'}), 500
+    return app.response_class(raw, mimetype=avatar.mime_type)
 
 @app.route('/api/profile/change-username', methods=['POST'])
 def change_username():
@@ -663,11 +681,12 @@ def direct_chat(user_id):
         flash('You can only chat with friends!', 'error')
         return redirect(url_for('dashboard'))
     
+    me = User.query.get(session['user_id'])
     other_user = User.query.get(user_id)
     # Compute freshness-based online indicator
     recent_seconds = (datetime.utcnow() - (other_user.last_seen or datetime.utcnow())).total_seconds() if other_user else 9999
     is_other_online = bool(other_user and other_user.is_online and recent_seconds < 120)
-    return render_template('direct_chat.html', other_user=other_user, friendship=friendship, is_other_online=is_other_online)
+    return render_template('direct_chat.html', me=me, other_user=other_user, friendship=friendship, is_other_online=is_other_online)
 
 @app.route('/api/chat/<int:user_id>/clear', methods=['POST'])
 def clear_chat(user_id):
