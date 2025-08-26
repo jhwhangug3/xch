@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from io import BytesIO
 import base64
+import types
 import os
 import hashlib
 import secrets
@@ -26,7 +27,8 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 @app.route('/favicon.ico')
 def favicon():
-    return redirect(url_for('static', filename='images/fav.png'))
+    images_dir = os.path.join(app.static_folder, 'images')
+    return send_from_directory(images_dir, 'fav.png', mimetype='image/png')
 
 # Database configuration: Prefer env var, fallback to provided Render Postgres URL
 _default_postgres_url = (
@@ -272,6 +274,16 @@ class Avatar(db.Model):
     data_b64 = db.Column(db.Text, nullable=False)
 
 # Routes
+@app.context_processor
+def inject_user_context():
+    try:
+        if 'user_id' in session:
+            u = User.query.get(session['user_id'])
+            return { 'user': u }
+    except Exception:
+        pass
+    # Provide a safe dummy so templates that access user.* don't 500
+    return { 'user': types.SimpleNamespace(username='', first_name='', last_name='', profile_picture=None, is_online=False) }
 @app.route('/')
 def index():
     if 'user_id' not in session:
