@@ -64,6 +64,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
 }
 
 /* Typography - Clean and Minimal */
@@ -446,8 +447,12 @@ p {
 /* Chat Input - Modern Design */
 .chat-input {
     padding: var(--space-4) var(--space-5);
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
     background: var(--white);
     border-top: 1px solid var(--border);
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
 }
 
 .chat-input form {
@@ -461,7 +466,7 @@ p {
     border-radius: var(--radius-xl);
     border: 1px solid var(--border);
     padding: var(--space-3) var(--space-4);
-    font-size: 0.875rem;
+    font-size: 16px; /* prevent iOS zoom on focus */
     resize: none;
     min-height: 2.5rem;
     max-height: 120px;
