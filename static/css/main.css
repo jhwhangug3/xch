@@ -276,12 +276,15 @@ p {
 }
 .navbar-meow .brand img { height: 28px; display: block; }
 .navbar-meow .actions { display: flex; align-items: center; gap: var(--space-3); }
-.navbar-meow .avatar-btn { border: none; background: transparent; padding: 0; display: flex; align-items: center; }
+.navbar-meow .avatar-btn { border: none; background: transparent; padding: 0; display: flex; align-items: center; cursor: pointer; }
 .navbar-meow .avatar-btn img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-.navbar-meow .menu { position: absolute; right: var(--space-5); top: 56px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); display: none; min-width: 180px; }
-.navbar-meow .menu a { display: block; padding: var(--space-3) var(--space-4); color: var(--black); text-decoration: none; }
-.navbar-meow .menu a:hover { background: var(--gray-50); }
-.navbar-meow .menu.show { display: block; }
+
+/* Expanded panel style (no dropdown) */
+.navbar-meow .panel { display: none; border-top: 1px solid var(--border); background: var(--white); }
+.navbar-meow.expanded .panel { display: block; }
+.navbar-meow .panel .content { display: flex; gap: var(--space-2); padding: var(--space-2) var(--space-5); }
+.navbar-meow .panel .link { padding: var(--space-2) var(--space-3); text-decoration: none; color: var(--black); border-radius: var(--radius-md); }
+.navbar-meow .panel .link:hover { background: var(--gray-50); }
 .chat-container {
     background: var(--white);
     border-radius: var(--radius-xl);
