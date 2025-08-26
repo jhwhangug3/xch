@@ -101,6 +101,9 @@
                 this.pendingMessages = new Map(); // Track pending messages
                 this.messageQueue = []; // Queue for sending messages
                 this.isProcessingQueue = false;
+                this.lastRRCheckTs = 0; // last read-receipt check timestamp
+                this.otherIsTypingUntil = 0; // ms epoch until which we show typing
+                this.typingHeartbeat = null; // interval id for typing pings
                 
                 this.init();
             }
@@ -110,6 +113,7 @@
                 this.setupEventListeners();
                 this.startUltraFastPolling();
                 this.setupMessageQueue();
+                this.installVisibilityHooks();
             }
 
             setupEventListeners() {
@@ -125,16 +129,41 @@
                     }
                 });
 
-                this.messageInput.addEventListener('input', () => {
-                    if (!this.isTyping) {
-                        this.isTyping = true;
-                        this.showTypingIndicator();
-                    }
-                    clearTimeout(this.typingTimeout);
-                    this.typingTimeout = setTimeout(() => {
-                        this.isTyping = false;
-                        this.hideTypingIndicator();
+                this.messageInput.addEventListener('input', async () => {
+                    // Send typing signal for the CURRENT user
+                    try {
+                        await fetch('/api/typing/ping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                        });
+                    } catch (e) {}
+
+                    // Start/refresh heartbeat while user continues typing
+                    if (this.typingHeartbeat) clearInterval(this.typingHeartbeat);
+                    this.typingHeartbeat = setInterval(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
                     }, 1000);
+                    clearTimeout(this.typingTimeout);
+                    this.typingTimeout = setTimeout(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
+                        if (this.typingHeartbeat) {
+                            clearInterval(this.typingHeartbeat);
+                            this.typingHeartbeat = null;
+                        }
+                    }, 1200);
                 });
             }
 
@@ -243,16 +272,56 @@
                 this.isProcessingQueue = false;
             }
 
+            installVisibilityHooks() {
+                const burst = () => this.startReadBurst();
+                window.addEventListener('focus', burst);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') burst();
+                });
+            }
+
+            setupTypingSocket() {
+                try {
+                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+                    const wsUrl = `${proto}://${location.host}/ws/typing/{{ friendship.chat_session_id }}`;
+                    this.typingWS = new WebSocket(wsUrl);
+                    this.typingWS.onmessage = (evt) => {
+                        try {
+                            const payload = JSON.parse(evt.data);
+                            if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
+                                this.otherIsTypingUntil = Date.now() + 2000;
+                                const existing = document.querySelector('.typing-indicator');
+                                if (!existing) {
+                                    const typingIndicator = document.createElement('div');
+                                    typingIndicator.className = 'typing-indicator';
+                                    typingIndicator.innerHTML = `
+                                        <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    this.scrollToBottom();
+                                }
+                                clearTimeout(this.wsTypingTimeout);
+                                this.wsTypingTimeout = setTimeout(() => {
+                                    const ex = document.querySelector('.typing-indicator');
+                                    if (ex) ex.remove();
+                                }, 2200);
+                            }
+                        } catch (_) {}
+                    };
+                } catch (e) {}
+            }
+
             async checkForNewMessages() {
                 try {
                     const url = this.lastMessageTimestamp 
                         ? `/api/messages/${this.otherUserId}/latest?last_timestamp=${encodeURIComponent(this.lastMessageTimestamp)}`
                         : `/api/messages/${this.otherUserId}/latest`;
                     
-                    const response = await fetch(url);
+                    const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
                     if (response.ok) {
-                        const newMessages = await response.json();
-                        
+                        const payload = await response.json();
+                        const newMessages = Array.isArray(payload) ? payload : (payload.messages || []);
+                        const readIdsSide = Array.isArray(payload.read_ids) ? payload.read_ids : [];
+
                         if (newMessages.length > 0) {
                             // Add only truly new messages
                             for (const newMsg of newMessages) {
@@ -266,6 +335,15 @@
                             
                             // Update timestamp
                             this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
+                        }
+
+                        // Also process side-channel read ids immediately
+                        if (readIdsSide.length > 0) {
+                            for (const id of readIdsSide) {
+                                const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                                if (idx !== -1) this.messages[idx].is_read = true;
+                            }
+                            this.displayMessages();
                         }
                     }
                 } catch (error) {
@@ -284,6 +362,8 @@
                     return;
                 }
 
+                const typingExisting = document.querySelector('.typing-indicator');
+                const typingHTML = typingExisting ? typingExisting.outerHTML : '';
                 this.chatMessages.innerHTML = this.messages.map(message => {
                     const isOwn = message.sender_id === this.currentUserId;
                     const messageClass = isOwn ? 'message own' : 'message';
@@ -292,9 +372,10 @@
                         minute: '2-digit' 
                     });
 
-                    const statusClass = message.is_read ? 'read' : 'unread';
-                    const statusIcon = message.is_read ? 'fas fa-check-double' : 'fas fa-check';
-                    const statusText = message.is_read ? 'Read' : 'Sent';
+                    const isRead = Boolean(message.is_read);
+                    const statusClass = isRead ? 'read' : 'unread';
+                    const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                    const statusText = isRead ? 'Read' : 'Sent';
 
                     const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
                     const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
@@ -310,34 +391,35 @@
                             </div>
                         </div>
                     `;
-                }).join('');
+                }).join('') + typingHTML;
 
                 this.scrollToBottom();
             }
 
-            showTypingIndicator() {
-                // Remove existing typing indicator
-                const existing = document.querySelector('.typing-indicator');
-                if (existing) existing.remove();
-                
-                const typingIndicator = document.createElement('div');
-                typingIndicator.className = 'typing-indicator';
-                typingIndicator.innerHTML = `
-                    <small class="text-muted">
-                        <i class="fas fa-pencil-alt me-1"></i>
-                        ${this.otherUser} is typing<span class="typing-dots">...</span>
-                    </small>
-                `;
-                
-                this.chatMessages.appendChild(typingIndicator);
-                this.scrollToBottom();
-            }
-
-            hideTypingIndicator() {
-                const typingIndicator = document.querySelector('.typing-indicator');
-                if (typingIndicator) {
-                    typingIndicator.remove();
-                }
+            async pollTyping() {
+                try {
+                    const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const existing = document.querySelector('.typing-indicator');
+                    if (data.is_typing) {
+                        this.otherIsTypingUntil = Date.now() + 2000;
+                        if (!existing) {
+                            const typingIndicator = document.createElement('div');
+                            typingIndicator.className = 'typing-indicator';
+                            typingIndicator.innerHTML = `
+                                <small class="text-muted">
+                                    <i class="fas fa-pencil-alt me-1"></i>
+                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                </small>`;
+                            this.chatMessages.appendChild(typingIndicator);
+                            this.scrollToBottom();
+                        }
+                    } else {
+                        // keep indicator a bit to avoid flicker
+                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
+                    }
+                } catch (e) {}
             }
 
             escapeHtml(text) {
@@ -351,10 +433,41 @@
             }
 
             startUltraFastPolling() {
-                // Check for new messages every 500ms for ultra-fast feel
-                setInterval(() => {
-                    this.checkForNewMessages();
-                }, 500);
+                // Check for new messages frequently
+                setInterval(() => { this.checkForNewMessages(); }, 600);
+                // Poll other user's typing status
+                setInterval(() => { this.pollTyping(); }, 300);
+                // Poll read receipts to update sent message status quickly
+                setInterval(() => { this.pollReadReceipts(); }, 600);
+                // Short burst right after opening
+                this.startReadBurst();
+            }
+
+            async pollReadReceipts() {
+                try {
+                    const res = await fetch(`/api/messages/${this.otherUserId}/read-receipts?since=${this.lastRRCheckTs}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (Array.isArray(data.read_ids) && data.read_ids.length > 0) {
+                        // Mark corresponding outgoing messages as read in UI
+                        for (const id of data.read_ids) {
+                            const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                            if (idx !== -1) {
+                                this.messages[idx].is_read = true;
+                            }
+                        }
+                        this.displayMessages();
+                    }
+                    if (typeof data.latest === 'number') this.lastRRCheckTs = data.latest;
+                } catch (e) {}
+            }
+
+            startReadBurst() {
+                const start = Date.now();
+                const burstInterval = setInterval(async () => {
+                    await this.pollReadReceipts();
+                    if (Date.now() - start > 3000) clearInterval(burstInterval);
+                }, 200);
             }
 
             setupMessageQueue() {
