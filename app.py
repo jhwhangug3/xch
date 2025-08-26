@@ -396,6 +396,17 @@ def profile():
     
     return render_template('profile.html', user=user, profile=profile)
 
+@app.route('/users/<int:user_id>')
+def view_user_profile(user_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        flash('User not found.', 'error')
+        return redirect(url_for('dashboard'))
+    profile = UserProfile.query.filter_by(user_id=user_id).first()
+    return render_template('user_profile.html', user=user, profile=profile)
+
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
