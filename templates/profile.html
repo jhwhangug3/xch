@@ -126,6 +126,20 @@
                         <small class="text-muted">Theme changes will be applied immediately</small>
                     </div>
 
+                    <!-- Notifications -->
+                    <div class="section-card">
+                        <h4 class="section-title">
+                            <i class="fas fa-bell"></i>Notifications
+                        </h4>
+                        <p class="text-muted mb-2">Enable push notifications for new messages.</p>
+                        <div class="d-flex align-items-center gap-2">
+                            <button id="enableNotificationsBtn" class="btn btn-primary">
+                                <i class="fas fa-bell me-2"></i>Allow notifications
+                            </button>
+                            <small id="notifStatus" class="text-muted"></small>
+                        </div>
+                    </div>
+
                     <!-- Account Security -->
                     <div class="section-card">
                         <h4 class="section-title">
@@ -346,6 +360,51 @@
                 showAlert('Failed to delete account', 'error');
             }
         });
+
+        // Notifications enablement
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+            return outputArray;
+        }
+        async function enableNotifications() {
+            const statusEl = document.getElementById('notifStatus');
+            try {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+                    statusEl.textContent = 'Notifications not supported on this browser.';
+                    return;
+                }
+                if (Notification.permission === 'denied') {
+                    statusEl.textContent = 'Notifications blocked in browser settings.';
+                    return;
+                }
+                const reg = await navigator.serviceWorker.register('/static/sw.js');
+                const resp = await fetch('/api/notifications/vapid-public-key');
+                if (!resp.ok) { statusEl.textContent = 'Server not ready for push.'; return; }
+                const data = await resp.json();
+                const key = data && data.key;
+                if (!key) { statusEl.textContent = 'Missing VAPID key.'; return; }
+                if (Notification.permission !== 'granted') {
+                    await Notification.requestPermission();
+                }
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+                }
+                const res = await fetch('/api/notifications/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) });
+                if (res.ok) {
+                    statusEl.textContent = 'Notifications enabled.';
+                } else {
+                    statusEl.textContent = 'Failed to enable notifications.';
+                }
+            } catch (e) {
+                document.getElementById('notifStatus').textContent = 'Failed to enable notifications.';
+            }
+        }
+        document.getElementById('enableNotificationsBtn').addEventListener('click', enableNotifications);
     </script>
 </body>
 </html>
