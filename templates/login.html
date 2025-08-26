@@ -3,23 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Chat App</title>
+    <title>Profile - ChatApp</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
 </head>
 <body>
+    <nav class="navbar-meow">
+        <div class="inner">
+            <a class="brand" href="{{ url_for('dashboard') }}">
+                <img src="{{ url_for('static', filename='images/nav.png') }}" alt="meowCHAT"/>
+            </a>
+            <div class="actions position-relative">
+                <button id="navAvatarBtn" class="avatar-btn">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture }}" alt=""/>
+                    {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ user.username }}" alt=""/>
+                    {% endif %}
+                </button>
+                <div id="navMenu" class="menu">
+                    <a href="{{ url_for('dashboard') }}"><i class="fas fa-home me-2"></i>Dashboard</a>
+                    <a href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Profile</a>
+                    <a href="{{ url_for('logout') }}" class="text-danger"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="login-card p-4 p-md-5">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-comments fa-3x text-primary mb-3"></i>
-                        <h2 class="fw-bold text-dark">Welcome Back</h2>
-                        <p class="text-muted">Sign in to continue chatting</p>
+            <div class="col-lg-8">
+                <div class="profile-container">
+                    <!-- Profile Header -->
+                    <div class="profile-header">
+                        <div class="profile-avatar overflow-hidden d-flex align-items-center justify-content-center">
+                            {% if user.profile_picture or profile.profile_picture %}
+                                <img src="{{ user.profile_picture or profile.profile_picture }}" alt="Avatar" class="img-fluid" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                            {% else %}
+                                <i class="fas fa-user"></i>
+                            {% endif %}
+                        </div>
+                        <h2 class="mb-2">{{ user.first_name or user.username }}</h2>
+                        <p class="text-muted">@{{ user.username }}</p>
+                        <div class="mt-3">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-2">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
                     </div>
 
+                    <!-- Flash Messages -->
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
                             {% for category, message in messages %}
@@ -31,32 +65,121 @@
                         {% endif %}
                     {% endwith %}
 
-                    <form method="POST" action="{{ url_for('login') }}">
+                    <!-- Basic Information -->
+                    <div class="section-card">
+                        <h4 class="section-title">
+                            <i class="fas fa-user-edit"></i>Basic Information
+                        </h4>
                         <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                            <form id="avatarForm" enctype="multipart/form-data">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input class="form-control" type="file" id="picture" name="picture" accept="image/*">
+                                    <button class="btn btn-primary" type="submit"><i class="fas fa-upload me-2"></i>Upload</button>
+                                    <button class="btn btn-outline-danger" type="button" id="deletePicture"><i class="fas fa-trash me-2"></i>Delete</button>
+                                </div>
+                                <small class="text-muted">Max 5MB. PNG, JPG, JPEG, GIF, WEBP.</small>
+                            </form>
+                        </div>
+                        <form id="basicInfoForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="first_name" name="first_name" 
+                                               value="{{ user.first_name or '' }}" placeholder="First Name">
+                                        <label for="first_name"><i class="fas fa-user me-2"></i>First Name</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="last_name" name="last_name" 
+                                               value="{{ user.last_name or '' }}" placeholder="Last Name">
+                                        <label for="last_name"><i class="fas fa-user me-2"></i>Last Name</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-floating">
+                                <textarea class="form-control" id="bio" name="bio" rows="3" 
+                                          placeholder="Tell us about yourself">{{ profile.bio or '' }}</textarea>
+                                <label for="bio"><i class="fas fa-info-circle me-2"></i>Bio</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Username Change -->
+                    <div class="section-card">
+                        <h4 class="section-title">
+                            <i class="fas fa-at"></i>Change Username
+                        </h4>
+                        <form id="usernameForm">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="new_username" name="new_username" 
+                                       value="{{ user.username }}" placeholder="New Username" required>
+                                <label for="new_username"><i class="fas fa-at me-2"></i>New Username</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-edit me-2"></i>Change Username
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Theme Preferences -->
+                    <div class="section-card">
+                        <h4 class="section-title">
+                            <i class="fas fa-palette"></i>Theme Preferences
+                        </h4>
+                        <div class="theme-toggle">
+                            <div class="theme-option {{ 'active' if (profile.theme_preference or 'light') == 'light' }}" 
+                                 onclick="setTheme('light')">
+                                <i class="fas fa-sun me-2"></i>Light
+                            </div>
+                            <div class="theme-option {{ 'active' if (profile.theme_preference or 'light') == 'dark' }}" 
+                                 onclick="setTheme('dark')">
+                                <i class="fas fa-moon me-2"></i>Dark
+                            </div>
+                            <div class="theme-option {{ 'active' if (profile.theme_preference or 'light') == 'auto' }}" 
+                                 onclick="setTheme('auto')">
+                                <i class="fas fa-magic me-2"></i>Auto
                             </div>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                        <small class="text-muted">Theme changes will be applied immediately</small>
+                    </div>
+
+                    <!-- Account Security -->
+                    <div class="section-card">
+                        <h4 class="section-title">
+                            <i class="fas fa-shield-alt"></i>Account Security
+                        </h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-key text-success me-3 fa-lg"></i>
+                                    <div>
+                                        <h6 class="mb-1">End-to-End Encryption</h6>
+                                        <small class="text-muted">All messages are encrypted</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-lock text-success me-3 fa-lg"></i>
+                                    <div>
+                                        <h6 class="mb-1">Secure Authentication</h6>
+                                        <small class="text-muted">Password-protected access</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <button type="submit" class="btn btn-primary w-100 mb-3">
-                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                        </button>
-                    </form>
-                    
-                    <div class="text-center">
-                        <p class="mb-0">Don't have an account? 
-                            <a href="{{ url_for('register') }}" class="text-decoration-none fw-bold">Register here</a>
-                        </p>
+                        <div class="mt-3 d-flex gap-2">
+                            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a>
+                            <button id="deleteAccountBtn" class="btn btn-danger">
+                                <i class="fas fa-user-times me-2"></i>Delete Account
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -64,5 +187,203 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Avatar upload
+        document.getElementById('avatarForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('picture');
+            if (!input.files || !input.files[0]) return;
+            const data = new FormData();
+            data.append('picture', input.files[0]);
+            try {
+                const res = await fetch('/api/profile/upload-picture', { method: 'POST', body: data });
+                const out = await res.json();
+                if (res.ok) {
+                    showAlert('Profile picture updated!', 'success');
+                    const img = document.createElement('img');
+                    img.src = out.url;
+                    img.alt = 'Avatar';
+                    img.className = 'img-fluid';
+                    img.style = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+                    const avatar = document.querySelector('.profile-avatar');
+                    avatar.innerHTML = '';
+                    avatar.appendChild(img);
+                } else {
+                    showAlert(out.error || 'Upload failed', 'error');
+                }
+            } catch (err) {
+                showAlert('Upload failed', 'error');
+            }
+        });
+
+        document.getElementById('deletePicture').addEventListener('click', async function() {
+            if (!confirm('Delete profile picture?')) return;
+            try {
+                const res = await fetch('/api/profile/delete-picture', { method: 'POST' });
+                const out = await res.json();
+                if (res.ok) {
+                    showAlert('Profile picture deleted', 'success');
+                    document.querySelector('.profile-avatar').innerHTML = '<i class="fas fa-user"></i>';
+                } else {
+                    showAlert(out.error || 'Delete failed', 'error');
+                }
+            } catch (err) {
+                showAlert('Delete failed', 'error');
+            }
+        });
+
+        // Basic Information Form
+        document.getElementById('basicInfoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                first_name: document.getElementById('first_name').value,
+                last_name: document.getElementById('last_name').value,
+                bio: document.getElementById('bio').value
+            };
+            
+            try {
+                const response = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Profile updated successfully!', 'success');
+                    // Update display name in header
+                    document.querySelector('.profile-header h2').textContent = 
+                        formData.first_name || document.getElementById('new_username').value;
+                } else {
+                    showAlert(result.error || 'Failed to update profile', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                showAlert('Failed to update profile', 'error');
+            }
+        });
+
+        // Username Change Form
+        document.getElementById('usernameForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const newUsername = document.getElementById('new_username').value.trim();
+            
+            if (newUsername.length < 3) {
+                showAlert('Username must be at least 3 characters long', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/profile/change-username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ new_username: newUsername })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Username changed successfully!', 'success');
+                    // Update username display
+                    document.querySelector('.profile-header p').textContent = '@' + newUsername;
+                    document.querySelector('.profile-header h2').textContent = 
+                        document.getElementById('first_name').value || newUsername;
+                } else {
+                    showAlert(result.error || 'Failed to change username', 'error');
+                }
+            } catch (error) {
+                console.error('Error changing username:', error);
+                showAlert('Failed to change username', 'error');
+            }
+        });
+
+        // Theme Selection
+        function setTheme(theme) {
+            // Remove active class from all options
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            
+            // Add active class to selected option
+            event.target.closest('.theme-option').classList.add('active');
+            
+            // Save theme preference
+            fetch('/api/profile/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ theme_preference: theme })
+            });
+            
+            // Apply theme immediately (you can add CSS variables here)
+            if (theme === 'dark') {
+                document.body.style.filter = 'invert(1) hue-rotate(180deg)';
+            } else {
+                document.body.style.filter = 'none';
+            }
+        }
+
+        // Alert Function
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insert at the top of the profile container
+            const container = document.querySelector('.profile-container');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Delete account
+        document.getElementById('deleteAccountBtn').addEventListener('click', async function() {
+            if (!confirm('Are you sure you want to permanently delete your account? This will remove all your messages and data.')) return;
+            try {
+                const res = await fetch('/api/account/delete', { method: 'POST' });
+                const out = await res.json();
+                if (res.ok) {
+                    window.location.href = '/register';
+                } else {
+                    showAlert(out.error || 'Failed to delete account', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to delete account', 'error');
+            }
+        });
+    </script>
 </body>
+<script>
+    (function(){
+        document.addEventListener('DOMContentLoaded', function(){
+            const btn = document.getElementById('navAvatarBtn');
+            const menu = document.getElementById('navMenu');
+            if (!btn || !menu) return;
+            btn.addEventListener('click', function(){
+                menu.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e){
+                if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.classList.remove('show');
+                }
+            });
+        });
+    })();
+</script>
 </html>
