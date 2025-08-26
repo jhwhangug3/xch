@@ -15,8 +15,12 @@
                 <div class="profile-container">
                     <!-- Profile Header -->
                     <div class="profile-header">
-                        <div class="profile-avatar">
-                            <i class="fas fa-user"></i>
+                        <div class="profile-avatar overflow-hidden d-flex align-items-center justify-content-center">
+                            {% if user.profile_picture or profile.profile_picture %}
+                                <img src="{{ user.profile_picture or profile.profile_picture }}" alt="Avatar" class="img-fluid" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                            {% else %}
+                                <i class="fas fa-user"></i>
+                            {% endif %}
                         </div>
                         <h2 class="mb-2">{{ user.first_name or user.username }}</h2>
                         <p class="text-muted">@{{ user.username }}</p>
@@ -44,6 +48,16 @@
                         <h4 class="section-title">
                             <i class="fas fa-user-edit"></i>Basic Information
                         </h4>
+                        <div class="mb-3">
+                            <form id="avatarForm" enctype="multipart/form-data">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input class="form-control" type="file" id="picture" name="picture" accept="image/*">
+                                    <button class="btn btn-primary" type="submit"><i class="fas fa-upload me-2"></i>Upload</button>
+                                    <button class="btn btn-outline-danger" type="button" id="deletePicture"><i class="fas fa-trash me-2"></i>Delete</button>
+                                </div>
+                                <small class="text-muted">Max 5MB. PNG, JPG, JPEG, GIF, WEBP.</small>
+                            </form>
+                        </div>
                         <form id="basicInfoForm">
                             <div class="row">
                                 <div class="col-md-6">
@@ -136,10 +150,13 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-3">
+                        <div class="mt-3 d-flex gap-2">
                             <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a>
+                            <button id="deleteAccountBtn" class="btn btn-danger">
+                                <i class="fas fa-user-times me-2"></i>Delete Account
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -149,6 +166,50 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Avatar upload
+        document.getElementById('avatarForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('picture');
+            if (!input.files || !input.files[0]) return;
+            const data = new FormData();
+            data.append('picture', input.files[0]);
+            try {
+                const res = await fetch('/api/profile/upload-picture', { method: 'POST', body: data });
+                const out = await res.json();
+                if (res.ok) {
+                    showAlert('Profile picture updated!', 'success');
+                    const img = document.createElement('img');
+                    img.src = out.url;
+                    img.alt = 'Avatar';
+                    img.className = 'img-fluid';
+                    img.style = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+                    const avatar = document.querySelector('.profile-avatar');
+                    avatar.innerHTML = '';
+                    avatar.appendChild(img);
+                } else {
+                    showAlert(out.error || 'Upload failed', 'error');
+                }
+            } catch (err) {
+                showAlert('Upload failed', 'error');
+            }
+        });
+
+        document.getElementById('deletePicture').addEventListener('click', async function() {
+            if (!confirm('Delete profile picture?')) return;
+            try {
+                const res = await fetch('/api/profile/delete-picture', { method: 'POST' });
+                const out = await res.json();
+                if (res.ok) {
+                    showAlert('Profile picture deleted', 'success');
+                    document.querySelector('.profile-avatar').innerHTML = '<i class="fas fa-user"></i>';
+                } else {
+                    showAlert(out.error || 'Delete failed', 'error');
+                }
+            } catch (err) {
+                showAlert('Delete failed', 'error');
+            }
+        });
+
         // Basic Information Form
         document.getElementById('basicInfoForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -268,6 +329,22 @@
                 }
             }, 5000);
         }
+
+        // Delete account
+        document.getElementById('deleteAccountBtn').addEventListener('click', async function() {
+            if (!confirm('Are you sure you want to permanently delete your account? This will remove all your messages and data.')) return;
+            try {
+                const res = await fetch('/api/account/delete', { method: 'POST' });
+                const out = await res.json();
+                if (res.ok) {
+                    window.location.href = '/register';
+                } else {
+                    showAlert(out.error || 'Failed to delete account', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to delete account', 'error');
+            }
+        });
     </script>
 </body>
 </html>
