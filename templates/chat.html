@@ -141,10 +141,13 @@
                 this.chatMessages.innerHTML = this.messages.map(message => {
                     const isOwn = message.username === this.currentUser;
                     const messageClass = isOwn ? 'message own' : 'message';
-                    const time = new Date(message.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
+                                    // Convert UTC timestamp to local time
+                const utcDate = new Date(message.timestamp + 'Z'); // Add Z to treat as UTC
+                const time = utcDate.toLocaleTimeString([], {
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true
+                });
 
                     return `
                         <div class="${messageClass}">
