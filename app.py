@@ -11,6 +11,8 @@ import secrets
 import threading
 import time
 from cryptography.fernet import Fernet
+from pywebpush import webpush, WebPushException
+import json
 import base64
 
 app = Flask(__name__)
@@ -272,6 +274,15 @@ class Avatar(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     mime_type = db.Column(db.String(50), nullable=False)
     data_b64 = db.Column(db.Text, nullable=False)
+
+class PushSubscription(db.Model):
+    __tablename__ = 'push_subscriptions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
+    endpoint = db.Column(db.Text, unique=True, nullable=False)
+    p256dh = db.Column(db.String(255), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 # Routes
 @app.context_processor
@@ -544,6 +555,57 @@ def get_avatar(user_id):
     except Exception:
         return jsonify({'error': 'corrupt'}), 500
     return app.response_class(raw, mimetype=avatar.mime_type)
+
+# Web Push configuration
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY')
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY')
+VAPID_CLAIMS = {
+    'sub': os.environ.get('VAPID_SUBJECT', 'mailto:admin@example.com')
+}
+
+@app.route('/api/notifications/vapid-public-key')
+def vapid_public_key():
+    if not VAPID_PUBLIC_KEY:
+        return jsonify({'error': 'VAPID not configured'}), 503
+    return jsonify({'key': VAPID_PUBLIC_KEY})
+
+@app.route('/api/notifications/subscribe', methods=['POST'])
+def subscribe_notifications():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    data = request.get_json() or {}
+    subscription = data.get('subscription')
+    if not subscription:
+        return jsonify({'error': 'Missing subscription'}), 400
+    endpoint = subscription.get('endpoint')
+    keys = subscription.get('keys', {})
+    p256dh = keys.get('p256dh')
+    auth_key = keys.get('auth')
+    if not endpoint or not p256dh or not auth_key:
+        return jsonify({'error': 'Invalid subscription'}), 400
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if existing:
+        existing.user_id = session['user_id']
+        existing.p256dh = p256dh
+        existing.auth = auth_key
+    else:
+        db.session.add(PushSubscription(
+            user_id=session['user_id'], endpoint=endpoint, p256dh=p256dh, auth=auth_key
+        ))
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/notifications/unsubscribe', methods=['POST'])
+def unsubscribe_notifications():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    data = request.get_json() or {}
+    endpoint = (data.get('subscription') or {}).get('endpoint') or data.get('endpoint')
+    if not endpoint:
+        return jsonify({'error': 'Missing endpoint'}), 400
+    PushSubscription.query.filter_by(endpoint=endpoint).delete(synchronize_session=False)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 @app.route('/api/profile/change-username', methods=['POST'])
 def change_username():
@@ -930,7 +992,38 @@ def send_direct_message():
         message_cache[cache_key].append(cached_message)
     
     db.session.commit()
-    
+
+    # Send Web Push notification to receiver (if configured)
+    try:
+        if VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY:
+            subs = PushSubscription.query.filter_by(user_id=receiver_id).all()
+            if subs:
+                payload = json.dumps({
+                    'title': 'New message',
+                    'body': content[:140],
+                    'sender_id': new_message.sender_id,
+                    'chat_session_id': friendship.chat_session_id,
+                    'url': url_for('direct_chat', user_id=session['user_id'], _external=True)
+                })
+                for s in subs:
+                    try:
+                        webpush(
+                            subscription_info={
+                                'endpoint': s.endpoint,
+                                'keys': {'p256dh': s.p256dh, 'auth': s.auth}
+                            },
+                            data=payload,
+                            vapid_private_key=VAPID_PRIVATE_KEY,
+                            vapid_claims=VAPID_CLAIMS
+                        )
+                    except WebPushException as e:
+                        try:
+                            print(f"WebPush failed: {e}")
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
     return jsonify({
         'id': new_message.id,
         'content': content,
