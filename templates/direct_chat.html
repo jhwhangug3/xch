@@ -68,7 +68,7 @@
                     </div>
 
                     <!-- Chat Input -->
-                    <div class="chat-input">
+                    <div class="chat-input" id="chatInputBar">
                         <form id="messageForm" class="d-flex gap-2">
                             <div class="position-relative flex-grow-1">
                                 <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
@@ -90,6 +90,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Set CSS var for input height so messages area avoids being covered
+        function setChatInputHeight() {
+            const bar = document.getElementById('chatInputBar');
+            if (!bar) return;
+            const h = bar.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--chat-input-h', h + 'px');
+        }
+        window.addEventListener('resize', setChatInputHeight);
+        window.addEventListener('orientationchange', setChatInputHeight);
+        document.addEventListener('DOMContentLoaded', setChatInputHeight);
         // Clear chat action
         document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('clearChatBtn');
@@ -117,6 +127,10 @@
             const stored = localStorage.getItem('theme');
             if (stored === 'dark' || stored === 'light') {
                 root.setAttribute('data-theme', stored);
+            }
+            // Ask notification permission
+            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                try { Notification.requestPermission(); } catch (_) {}
             }
             function updateIcon(btn) {
                 const mode = root.getAttribute('data-theme');
@@ -382,6 +396,12 @@
                             
                             this.displayMessages();
                             this.scrollToBottom();
+                            // Notify for incoming messages from the other user
+                            const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
+                            if (incoming.length > 0) {
+                                const last = incoming[incoming.length - 1];
+                                this.notifyNewMessage(this.otherUser, last.content || 'New message');
+                            }
                             
                             // Update timestamp
                             this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
@@ -537,6 +557,37 @@
                         this.processMessageQueue();
                     }
                 }, 100);
+            }
+
+            notifyNewMessage(fromName, text) {
+                try {
+                    const body = String(text).slice(0, 120);
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                        const n = new Notification(`${fromName}`, { body });
+                        setTimeout(() => { try { n.close(); } catch (_) {} }, 4000);
+                    }
+                    // Play a short tone when page is visible or hidden (browsers require user gesture; will work after first interaction)
+                    this.playTone();
+                } catch (_) {}
+            }
+
+            playTone() {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!this._audioCtx) this._audioCtx = new AudioCtx();
+                    const ctx = this._audioCtx;
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = 880;
+                    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+                    o.connect(g).connect(ctx.destination);
+                    o.start();
+                    o.stop(ctx.currentTime + 0.32);
+                } catch (_) {}
             }
         }
 
