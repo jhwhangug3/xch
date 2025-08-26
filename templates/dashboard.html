@@ -90,32 +90,33 @@
                                         <div class="friends-grid">
                                             {% for friend in friends %}
                                             <div class="friend-item">
-                                                <div class="friend-avatar">
-                                                    {% if friend.profile_picture %}
-                                                        <img src="{{ friend.profile_picture }}" alt="" class="rounded-circle">
-                                                    {% else %}
-                                                        <div class="avatar-placeholder">
-                                                            <i class="fas fa-user"></i>
-                                                        </div>
-                                                    {% endif %}
-                                                    {% if friend.is_online %}
-                                                        <span class="online-dot"></span>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="friend-info">
-                                                    <h6 class="friend-name">{{ friend.first_name or friend.username }}</h6>
-                                                    <small class="friend-status">
-                                                        {% if friend.is_online %}
-                                                            <span class="text-success">● Online</span>
+                                                <a href="{{ url_for('view_user_profile', user_id=friend.id) }}" class="friend-avatar-link">
+                                                    <div class="friend-avatar">
+                                                        {% if friend.profile_picture %}
+                                                            <img src="{{ friend.profile_picture }}" alt="" class="rounded-circle">
                                                         {% else %}
-                                                            <span class="text-muted">○ Offline</span>
+                                                            <div class="avatar-placeholder">
+                                                                <i class="fas fa-user"></i>
+                                                            </div>
                                                         {% endif %}
-                                                    </small>
-                                                </div>
+                                                        {% if friend.is_online %}
+                                                            <span class="online-dot"></span>
+                                                        {% endif %}
+                                                    </div>
+                                                </a>
+                                                <a href="{{ url_for('view_user_profile', user_id=friend.id) }}" class="friend-info-link">
+                                                    <div class="friend-info">
+                                                        <h6 class="friend-name">{{ friend.first_name or friend.username }}</h6>
+                                                        <small class="friend-status">
+                                                            {% if friend.is_online %}
+                                                                <span class="text-success">● Online</span>
+                                                            {% else %}
+                                                                <span class="text-muted">○ Offline</span>
+                                                            {% endif %}
+                                                        </small>
+                                                    </div>
+                                                </a>
                                                 <div class="friend-actions">
-                                                    <a href="{{ url_for('view_user_profile', user_id=friend.id) }}" class="btn btn-outline-secondary btn-sm" title="View Profile">
-                                                        <i class="fas fa-user"></i>
-                                                    </a>
                                                     <a href="{{ url_for('direct_chat', user_id=friend.id) }}" class="btn btn-primary btn-sm" title="Start Chat">
                                                         <i class="fas fa-comment"></i>
                                                     </a>
