@@ -25,7 +25,11 @@
                                         <i class="fas fa-user"></i>
                                     </div>
                                     <div>
-                                        <h4 class="mb-0">{{ other_user.first_name or other_user.username }}</h4>
+                                        <h4 class="mb-0">
+                                            <a href="{{ url_for('view_user_profile', user_id=other_user.id) }}" class="text-decoration-none">
+                                                {{ other_user.first_name or other_user.username }}
+                                            </a>
+                                        </h4>
                                         <div class="online-status">
                                             {% if other_user.is_online %}
                                                 <span class="online-indicator"></span>
