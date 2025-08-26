@@ -307,6 +307,9 @@ p {
     box-shadow: none;
     position: relative;
     isolation: isolate;
+    /* Ensure proper scroll behavior */
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 /* Chat Header - Modern & Clean */
@@ -386,7 +389,7 @@ p {
     overflow-x: hidden;
     padding: var(--space-5);
     padding-top: calc(var(--chat-header-h, 72px));
-    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom) + 20px);
+    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom) + 40px);
     background: var(--gray-50);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -394,7 +397,10 @@ p {
     height: 100%;
     min-height: 0;
     /* Ensure proper scroll behavior */
-    scroll-padding-bottom: 20px;
+    scroll-padding-bottom: 40px;
+    /* Force scroll to bottom */
+    scroll-snap-type: y proximity;
+    scroll-snap-align: end;
 }
 
 .message {
@@ -407,6 +413,15 @@ p {
 /* Ensure last message has proper bottom spacing */
 .message:last-child {
     margin-bottom: var(--space-6);
+}
+
+/* Guaranteed bottom spacing - prevents messages from being hidden */
+.chat-messages::after {
+    content: '';
+    display: block;
+    height: 60px;
+    min-height: 60px;
+    width: 100%;
 }
 
 .message.own {
@@ -782,35 +797,24 @@ p {
     border-color: var(--gray-300);
 }
 
-/* Emoji Picker - Clean */
-.emoji-picker {
-    position: absolute;
-    bottom: 100%;
-    right: 0;
+/* File Attachment Button - Clean */
+.btn-attach {
     background: var(--white);
-    border-radius: var(--radius-md);
+    color: var(--black);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-md);
-    padding: var(--space-4);
-    display: none;
-    z-index: 1000;
-}
-
-.emoji-item {
-    font-size: 1.25rem;
-    cursor: pointer;
-    padding: var(--space-2);
-    border-radius: var(--radius-sm);
-    transition: var(--transition);
-    display: inline-block;
+    border-radius: var(--radius-xl);
+    width: 2.5rem;
+    height: 2.5rem;
     min-width: 2.5rem;
-    min-height: 2.5rem;
-    text-align: center;
-    line-height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
 }
 
-.emoji-item:hover {
-    background: var(--gray-100);
+.btn-attach:hover {
+    background: var(--gray-50);
+    border-color: var(--black);
 }
 
 /* Animations - Subtle */
@@ -974,10 +978,11 @@ p {
         max-width: 85%;
     }
     
-    .emoji-picker {
-        right: -50%;
-        width: 280px;
-    }
+         .btn-attach {
+         width: 2.25rem;
+         height: 2.25rem;
+         min-width: 2.25rem;
+     }
 }
 
 @media (max-width: 480px) {
@@ -1063,19 +1068,11 @@ p {
         padding: var(--space-2) var(--space-3);
     }
     
-    .emoji-picker {
-        right: -100%;
-        width: 240px;
-        padding: var(--space-3);
-    }
-    
-    .emoji-item {
-        font-size: 1rem;
-        padding: var(--space-1);
-        min-width: 2.25rem;
-        min-height: 2.25rem;
-        line-height: 2.25rem;
-    }
+         .btn-attach {
+         width: 2rem;
+         height: 2rem;
+         min-width: 2rem;
+     }
     
     .theme-toggle {
         flex-direction: column;
@@ -1167,10 +1164,9 @@ p {
         border: 1px solid var(--gray-300);
     }
     
-    .btn,
-    .emoji-picker {
-        display: none;
-    }
+         .btn {
+         display: none;
+     }
 }
 
 /* Touch Device Optimizations */
@@ -1192,28 +1188,18 @@ p {
         transform: none;
     }
     
-    .emoji-item:hover {
-        transform: none;
-    }
-    
-    /* Increase touch targets */
-    .btn {
-        min-height: 2.75rem;
-    }
-    
-    .sidebar .nav-link {
-        min-height: 2.75rem;
-    }
-    
-    .search-result-item {
-        min-height: 2.75rem;
-    }
-    
-    .emoji-item {
-        min-width: 2.75rem;
-        min-height: 2.75rem;
-        line-height: 2.75rem;
-    }
+         /* Increase touch targets */
+     .btn {
+         min-height: 2.75rem;
+     }
+     
+     .sidebar .nav-link {
+         min-height: 2.75rem;
+     }
+     
+     .search-result-item {
+         min-height: 2.75rem;
+     }
 }
 
 /* Landscape Mobile Optimizations */
