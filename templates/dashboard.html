@@ -18,7 +18,11 @@
                         <div class="col-md-3">
                             <div class="sidebar h-100">
                                 <div class="text-center mb-4">
-                                    <i class="fas fa-user-circle fa-3x mb-3"></i>
+                                    {% if user.profile_picture %}
+                                        <img src="{{ user.profile_picture }}" alt="Avatar" class="mb-3" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">
+                                    {% else %}
+                                        <i class="fas fa-user-circle fa-3x mb-3"></i>
+                                    {% endif %}
                                     <h5 class="mb-1">{{ user.first_name or user.username }}</h5>
                                     <small class="text-light">@{{ user.username }}</small>
                                 </div>
@@ -43,6 +47,9 @@
                                 <!-- Header -->
                                 <div class="d-flex justify-content-between align-items-center mb-4">
                                     <h2 class="mb-0">Welcome back, {{ user.first_name or user.username }}! 👋</h2>
+                                    <button id="themeToggle" class="btn btn-secondary btn-sm" type="button" title="Toggle theme">
+                                        <i class="fas fa-moon"></i>
+                                    </button>
                                 </div>
                                 
                                 <!-- Stats Cards -->
@@ -106,7 +113,10 @@
                                             <div class="col-md-6 col-lg-4">
                                                 <div class="user-card">
                                                     <div class="d-flex justify-content-between align-items-center">
-                                                        <div class="d-flex align-items-center">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            {% if friend.profile_picture %}
+                                                                <img src="{{ friend.profile_picture }}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">
+                                                            {% endif %}
                                                             {% if friend.is_online %}
                                                                 <span class="online-indicator"></span>
                                                             {% else %}
@@ -150,6 +160,30 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            const root = document.documentElement;
+            const stored = localStorage.getItem('theme');
+            if (stored === 'dark' || stored === 'light') {
+                root.setAttribute('data-theme', stored);
+            }
+            function updateIcon(btn) {
+                const mode = root.getAttribute('data-theme');
+                btn.innerHTML = mode === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                const btn = document.getElementById('themeToggle');
+                if (!btn) return;
+                updateIcon(btn);
+                btn.addEventListener('click', function() {
+                    const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                    root.setAttribute('data-theme', current);
+                    localStorage.setItem('theme', current);
+                    updateIcon(btn);
+                });
+            });
+        })();
+    </script>
     <script>
         // User Search Functionality
         let searchTimeout;
