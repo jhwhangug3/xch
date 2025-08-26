@@ -117,8 +117,15 @@
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
                 const reg = await navigator.serviceWorker.register('/static/sw.js');
                 const resp = await fetch('/api/notifications/vapid-public-key');
-                if (!resp.ok) return;
+                if (!resp.ok) {
+                    console.log('Push notifications not available');
+                    return;
+                }
                 const data = await resp.json();
+                if (data.error) {
+                    console.log('Push notifications error:', data.error);
+                    return;
+                }
                 const key = data && data.key;
                 if (!key) return;
                 let sub = await reg.pushManager.getSubscription();
@@ -130,7 +137,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ subscription: sub.toJSON() })
                 });
-            } catch (e) { /* ignore */ }
+            } catch (e) { 
+                console.log('Push notification setup failed:', e);
+            }
         }
         window.addEventListener('resize', setChatInputHeight);
         window.addEventListener('orientationchange', setChatInputHeight);
@@ -655,7 +664,14 @@
 
         // Initialize ultra-fast chat app when page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Add chat-active class to body to prevent page scrolling
+            document.body.classList.add('chat-active');
             new UltraFastChatApp();
+        });
+
+        // Clean up when leaving the page
+        window.addEventListener('beforeunload', () => {
+            document.body.classList.remove('chat-active');
         });
     </script>
 </body>
