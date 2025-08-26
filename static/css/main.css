@@ -770,6 +770,28 @@ p {
     border-radius: 50%;
 }
 
+/* Clickable avatar and info links */
+.friend-avatar-link,
+.friend-info-link {
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+}
+
+.friend-avatar-link:hover,
+.friend-info-link:hover {
+    transform: translateY(-1px);
+}
+
+.friend-avatar-link:hover .friend-avatar img,
+.friend-avatar-link:hover .avatar-placeholder {
+    box-shadow: var(--shadow-sm);
+}
+
+.friend-info-link:hover .friend-name {
+    color: var(--gray-700);
+}
+
 .friend-info {
     flex: 1;
     min-width: 0;
