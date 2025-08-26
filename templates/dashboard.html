@@ -10,24 +10,26 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
 </head>
 <body>
-    <nav class="navbar-meow">
+    <nav class="navbar-meow" id="topNav">
         <div class="inner">
             <a class="brand" href="{{ url_for('dashboard') }}">
                 <img src="{{ url_for('static', filename='images/nav.png') }}" alt="meowCHAT"/>
             </a>
             <div class="actions position-relative">
-                <button id="navAvatarBtn" class="avatar-btn">
+                <button id="navAvatarBtn" class="avatar-btn" type="button">
                     {% if user.profile_picture %}
                         <img src="{{ user.profile_picture }}" alt=""/>
                     {% else %}
                         <img src="https://ui-avatars.com/api/?name={{ user.username }}" alt=""/>
                     {% endif %}
                 </button>
-                <div id="navMenu" class="menu">
-                    <a href="{{ url_for('dashboard') }}"><i class="fas fa-home me-2"></i>Dashboard</a>
-                    <a href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Profile</a>
-                    <a href="{{ url_for('logout') }}" class="text-danger"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
-                </div>
+            </div>
+        </div>
+        <div class="panel" id="navPanel">
+            <div class="content">
+                <a class="link" href="{{ url_for('dashboard') }}"><i class="fas fa-home me-2"></i>Dashboard</a>
+                <a class="link" href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Profile</a>
+                <a class="link text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
             </div>
         </div>
     </nav>
@@ -36,35 +38,8 @@
             <div class="col-12">
                 <div class="dashboard-container">
                     <div class="row g-0">
-                        <!-- Sidebar -->
-                        <div class="col-md-3">
-                            <div class="sidebar h-100">
-                                <div class="text-center mb-4">
-                                    {% if user.profile_picture %}
-                                        <img src="{{ user.profile_picture }}" alt="Avatar" class="mb-3" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">
-                                    {% else %}
-                                        <i class="fas fa-user-circle fa-3x mb-3"></i>
-                                    {% endif %}
-                                    <h5 class="mb-1">{{ user.first_name or user.username }}</h5>
-                                    <small class="text-light">@{{ user.username }}</small>
-                                </div>
-                                
-                                <nav class="nav flex-column">
-                                    <a class="nav-link active" href="{{ url_for('dashboard') }}">
-                                        <i class="fas fa-home me-2"></i>Dashboard
-                                    </a>
-                                    <a class="nav-link" href="{{ url_for('profile') }}">
-                                        <i class="fas fa-user-edit me-2"></i>Profile
-                                    </a>
-                                    <a class="nav-link" href="{{ url_for('logout') }}">
-                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                                    </a>
-                                </nav>
-                            </div>
-                        </div>
-                        
-                        <!-- Main Content -->
-                        <div class="col-md-9">
+                        <!-- Main Content (full width, no sidebar) -->
+                        <div class="col-12">
                             <div class="main-content">
                                 <!-- Header -->
                                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -313,14 +288,15 @@
     (function(){
         document.addEventListener('DOMContentLoaded', function(){
             const btn = document.getElementById('navAvatarBtn');
-            const menu = document.getElementById('navMenu');
-            if (!btn || !menu) return;
+            const nav = document.getElementById('topNav');
+            const panel = document.getElementById('navPanel');
+            if (!btn || !nav || !panel) return;
             btn.addEventListener('click', function(){
-                menu.classList.toggle('show');
+                nav.classList.toggle('expanded');
             });
             document.addEventListener('click', function(e){
-                if (!menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.classList.remove('show');
+                if (!nav.contains(e.target) || e.target.closest('a.link')) {
+                    nav.classList.remove('expanded');
                 }
             });
         });
