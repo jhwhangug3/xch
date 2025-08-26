@@ -415,7 +415,8 @@ def view_user_profile(user_id):
         flash('User not found.', 'error')
         return redirect(url_for('dashboard'))
     profile = UserProfile.query.filter_by(user_id=user_id).first()
-    return render_template('user_profile.html', user=user, profile=profile)
+    friends = get_user_friends(user_id)
+    return render_template('user_profile.html', user=user, profile=profile, friends=friends)
 
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
@@ -659,7 +660,10 @@ def direct_chat(user_id):
         return redirect(url_for('dashboard'))
     
     other_user = User.query.get(user_id)
-    return render_template('direct_chat.html', other_user=other_user, friendship=friendship)
+    # Compute freshness-based online indicator
+    recent_seconds = (datetime.utcnow() - (other_user.last_seen or datetime.utcnow())).total_seconds() if other_user else 9999
+    is_other_online = bool(other_user and other_user.is_online and recent_seconds < 120)
+    return render_template('direct_chat.html', other_user=other_user, friendship=friendship, is_other_online=is_other_online)
 
 @app.route('/api/chat/<int:user_id>/clear', methods=['POST'])
 def clear_chat(user_id):
@@ -1153,17 +1157,21 @@ def get_user_friends(user_id):
     for friendship in friendships:
         friend = User.query.get(friendship.friend_id)
         if friend:
+            # compute online freshness: online if last_seen within 120 seconds and active flag
+            recent_seconds = (datetime.utcnow() - (friend.last_seen or datetime.utcnow())).total_seconds()
+            computed_online = bool(friend.is_online and recent_seconds < 120)
             friends.append({
                 'id': friend.id,
                 'username': friend.username,
                 'first_name': friend.first_name,
                 'last_name': friend.last_name,
-                'is_online': friend.is_online,
+                'is_online': computed_online,
                 'last_seen': friend.last_seen.strftime('%Y-%m-%d %H:%M:%S') if friend.last_seen else None,
                 'public_key': friend.public_key,
                 'chat_session_id': friendship.chat_session_id,
                 'unread_count': friendship.unread_count,
-                'last_message_at': friendship.last_message_at.strftime('%Y-%m-%d %H:%M:%S') if friendship.last_message_at else None
+                'last_message_at': friendship.last_message_at.strftime('%Y-%m-%d %H:%M:%S') if friendship.last_message_at else None,
+                'profile_picture': friend.profile_picture
             })
     
     return friends
