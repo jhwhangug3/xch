@@ -16,7 +16,7 @@
             <div class="col-12">
                 <div class="chat-container">
                     <!-- Chat Header -->
-                    <div class="chat-header">
+                    <div class="chat-header" id="chatHeaderBar">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-3">
                                 <a href="{{ url_for('dashboard') }}" class="back-button">
@@ -97,9 +97,18 @@
             const h = bar.getBoundingClientRect().height;
             document.documentElement.style.setProperty('--chat-input-h', h + 'px');
         }
+        function setChatHeaderHeight() {
+            const bar = document.getElementById('chatHeaderBar');
+            if (!bar) return;
+            const h = bar.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--chat-header-h', h + 'px');
+        }
         window.addEventListener('resize', setChatInputHeight);
         window.addEventListener('orientationchange', setChatInputHeight);
         document.addEventListener('DOMContentLoaded', setChatInputHeight);
+        window.addEventListener('resize', setChatHeaderHeight);
+        window.addEventListener('orientationchange', setChatHeaderHeight);
+        document.addEventListener('DOMContentLoaded', setChatHeaderHeight);
         // Clear chat action
         document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('clearChatBtn');
