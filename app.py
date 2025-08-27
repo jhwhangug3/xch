@@ -22,6 +22,7 @@ import json
 import base64
 from markupsafe import Markup, escape
 import re
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 # Use stable secret from env if provided to persist sessions across restarts
@@ -1587,6 +1588,34 @@ def get_location(user_id):
         data['lon'] = loc.get('lon')
         data['timezone'] = settings.get('timezone') or profile.timezone
     return jsonify(data)
+
+# Chat attachments upload
+@app.route('/api/chat/upload', methods=['POST'])
+def upload_chat_attachment():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file'}), 400
+    f = request.files['file']
+    if f.filename == '':
+        return jsonify({'error': 'Empty filename'}), 400
+    # Allow common types
+    allowed = {'image/jpeg','image/png','image/gif','image/webp','application/pdf','text/plain','application/zip','application/x-rar-compressed','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/msword'}
+    if f.mimetype not in allowed:
+        # Still accept but mark generic
+        pass
+    # Save to uploads/chat/
+    chat_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat')
+    os.makedirs(chat_dir, exist_ok=True)
+    filename = secure_filename(f.filename)
+    # Avoid collisions
+    ts = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+    base, ext = os.path.splitext(filename)
+    safe_name = f"{base}_{ts}{ext}"
+    path = os.path.join(chat_dir, safe_name)
+    f.save(path)
+    url = url_for('serve_upload', filename=f"chat/{safe_name}")
+    return jsonify({'url': url})
 
 # Jinja filter to linkify @username mentions and URLs in bio safely
 @app.template_filter('linkify_bio')
