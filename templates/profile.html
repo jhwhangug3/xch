@@ -213,54 +213,9 @@
             }
         })();
 
-        document.getElementById('deletePicture').addEventListener('click', async function() {
-            if (!confirm('Delete profile picture?')) return;
-            try {
-                const res = await fetch('/api/profile/delete-picture', { method: 'POST' });
-                const out = await res.json();
-                if (res.ok) {
-                    showAlert('Profile picture deleted', 'success');
-                    document.querySelector('.profile-avatar').innerHTML = '<i class="fas fa-user"></i>';
-                } else {
-                    showAlert(out.error || 'Delete failed', 'error');
-                }
-            } catch (err) {
-                showAlert('Delete failed', 'error');
-            }
-        });
+        // Delete picture function removed as it references non-existent elements
 
-        // Basic Information Form (legacy guard - only if present)
-        (function(){
-            const formEl = document.getElementById('basicInfoForm');
-            if (!formEl) return;
-            formEl.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const firstNameEl = document.getElementById('first_name');
-                const bioEl = document.getElementById('bio');
-                const formData = {
-                    first_name: firstNameEl ? firstNameEl.value : '',
-                    last_name: '',
-                    bio: bioEl ? bioEl.value : ''
-                };
-                try {
-                    const response = await fetch('/api/profile/update', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showAlert('Profile updated successfully!', 'success');
-                        document.querySelector('.profile-header h2').textContent = formData.first_name || (document.getElementById('new_username') && document.getElementById('new_username').value) || '{{ user.username }}';
-                    } else {
-                        showAlert(result.error || 'Failed to update profile', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error updating profile:', error);
-                    showAlert('Failed to update profile', 'error');
-                }
-            });
-        })();
+                // Basic Information Form removed as it's not part of the current profile template structure
 
         // Username Change Form
         document.getElementById('usernameForm').addEventListener('submit', async function(e) {
@@ -286,10 +241,11 @@
                 
                 if (response.ok) {
                     showAlert('Username changed successfully!', 'success');
-                    // Update username display
-                    document.querySelector('.profile-header p').textContent = '@' + newUsername;
-                    document.querySelector('.profile-header h2').textContent = 
-                        document.getElementById('first_name').value || newUsername;
+                    // Update the settings title to show the new username
+                    const titleElement = document.querySelector('.settings-title');
+                    if (titleElement) {
+                        titleElement.textContent = 'Edit Profile - ' + (document.getElementById('first_name').value || newUsername);
+                    }
                 } else {
                     showAlert(result.error || 'Failed to change username', 'error');
                 }
@@ -308,9 +264,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             
-            // Insert at the top of the profile container
-            const container = document.querySelector('.profile-container');
-            container.insertBefore(alertDiv, container.firstChild);
+            // Insert at the top of the settings sheet
+            const container = document.querySelector('.settings-sheet');
+            if (container) {
+                container.insertBefore(alertDiv, container.firstChild);
+            }
             
             // Auto-remove after 5 seconds
             setTimeout(() => {
@@ -320,66 +278,9 @@
             }, 5000);
         }
 
-        // Delete account
-        document.getElementById('deleteAccountBtn').addEventListener('click', async function() {
-            if (!confirm('Are you sure you want to permanently delete your account? This will remove all your messages and data.')) return;
-            try {
-                const res = await fetch('/api/account/delete', { method: 'POST' });
-                const out = await res.json();
-                if (res.ok) {
-                    window.location.href = '/register';
-                } else {
-                    showAlert(out.error || 'Failed to delete account', 'error');
-                }
-            } catch (e) {
-                showAlert('Failed to delete account', 'error');
-            }
-        });
+        // Delete account function removed as it references non-existent elements
 
-        // Notifications enablement
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-            return outputArray;
-        }
-        async function enableNotifications() {
-            const statusEl = document.getElementById('notifStatus');
-            try {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
-                    statusEl.textContent = 'Notifications not supported on this browser.';
-                    return;
-                }
-                if (Notification.permission === 'denied') {
-                    statusEl.textContent = 'Notifications blocked in browser settings.';
-                    return;
-                }
-                const reg = await navigator.serviceWorker.register('/static/sw.js');
-                const resp = await fetch('/api/notifications/vapid-public-key');
-                if (!resp.ok) { statusEl.textContent = 'Server not ready for push.'; return; }
-                const data = await resp.json();
-                const key = data && data.key;
-                if (!key) { statusEl.textContent = 'Missing VAPID key.'; return; }
-                if (Notification.permission !== 'granted') {
-                    await Notification.requestPermission();
-                }
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
-                }
-                const res = await fetch('/api/notifications/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) });
-                if (res.ok) {
-                    statusEl.textContent = 'Notifications enabled.';
-                } else {
-                    statusEl.textContent = 'Failed to enable notifications.';
-                }
-            } catch (e) {
-                document.getElementById('notifStatus').textContent = 'Failed to enable notifications.';
-            }
-        }
-        document.getElementById('enableNotificationsBtn').addEventListener('click', enableNotifications);
+        // Notifications functionality removed as it references non-existent elements
 
         // Local time and location functionality
         let MY_TIMEZONE = "{{ (profile.timezone or 'UTC') }}";
@@ -405,44 +306,9 @@
             }
         }
 
-        // Presence heartbeat + location reporting
-        async function heartbeatPresence() {
-            try {
-                const res = await fetch('/api/presence/ping', { method: 'POST' });
-                const dot = document.getElementById('presenceDot');
-                if (res && res.ok) {
-                    dot && (dot.classList.add('online'), dot.classList.remove('offline'));
-                } else {
-                    dot && (dot.classList.add('offline'), dot.classList.remove('online'));
-                }
-            } catch (e) {
-                const dot = document.getElementById('presenceDot');
-                dot && (dot.classList.add('offline'), dot.classList.remove('online'));
-            }
-        }
+        // Presence heartbeat removed as it references non-existent elements
 
-        // Save location/timezone and time updater
-        document.getElementById('saveLocationBtn').addEventListener('click', async function() {
-            const locationVal = document.getElementById('location').value.trim();
-            const timezoneVal = document.getElementById('timezone').value.trim() || 'UTC';
-            try {
-                const res = await fetch('/api/profile/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ location: locationVal, timezone: timezoneVal })
-                });
-                const out = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    MY_TIMEZONE = timezoneVal;
-                    updateLocalTime();
-                    showAlert('Location settings saved', 'success');
-                } else {
-                    showAlert(out.error || 'Failed to save location', 'error');
-                }
-            } catch (e) {
-                showAlert('Failed to save location', 'error');
-            }
-        });
+        // Save location button removed as it references non-existent elements
 
         // Debounced global place autocomplete using OpenStreetMap Nominatim
         (function(){
@@ -503,12 +369,7 @@
             }
         })();
 
-        document.addEventListener('DOMContentLoaded', function() {
-            heartbeatPresence();
-            setInterval(heartbeatPresence, 10000);
-            updateLocalTime();
-            setInterval(updateLocalTime, 1000);
-        });
+        // DOMContentLoaded event listeners removed as they reference non-existent elements
 
         // Links management
         function renderLinks(items) {
@@ -555,46 +416,10 @@
                 linksState[parseInt(idx)][field] = e.target.value;
             }
         });
-        document.getElementById('saveLinksBtn').addEventListener('click', async function() {
-            try {
-                const res = await fetch('/api/profile/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ links: linksState })
-                });
-                if (res.ok) showAlert('Links saved', 'success'); else showAlert('Failed to save links', 'error');
-            } catch (e) { showAlert('Failed to save links', 'error'); }
-        });
+        // Save links button removed as it references non-existent elements
         document.addEventListener('DOMContentLoaded', loadLinks);
 
-        // Collapsible Friends Section (hidden until clicked)
-        document.addEventListener('DOMContentLoaded', function() {
-            // Create section shell
-            const container = document.querySelector('.profile-container');
-            const friendsSection = document.createElement('div');
-            friendsSection.className = 'section-card';
-            friendsSection.innerHTML = `
-                <h4 class="section-title"><i class="fas fa-user-friends"></i>Friends</h4>
-                <button class="btn btn-secondary" id="toggleFriendsBtn"><i class="fas fa-chevron-down me-2"></i>Show Friends</button>
-                <div id="friendsContent" class="mt-3 d-none">
-                    <div class="text-muted">Friends list is hidden. Click the button to toggle.</div>
-                </div>
-            `;
-            container.appendChild(friendsSection);
-
-            const toggleBtn = friendsSection.querySelector('#toggleFriendsBtn');
-            const content = friendsSection.querySelector('#friendsContent');
-            toggleBtn.addEventListener('click', function() {
-                const hidden = content.classList.contains('d-none');
-                if (hidden) {
-                    content.classList.remove('d-none');
-                    toggleBtn.innerHTML = '<i class="fas fa-chevron-up me-2"></i>Hide Friends';
-                } else {
-                    content.classList.add('d-none');
-                    toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>Show Friends';
-                }
-            });
-        });
+        // Friends section removed as it's not part of the current profile template structure
 
         // Save All (gathers all fields and saves in one request)
         async function saveAll() {
@@ -616,8 +441,11 @@
                 const out = await res.json();
                 if (res.ok) {
                     showAlert('Profile saved', 'success');
-                    // locally update header
-                    document.querySelector('.profile-header h2').textContent = payload.first_name || payload.new_username || '{{ user.username }}';
+                    // Update the settings title to show the new name
+                    const titleElement = document.querySelector('.settings-title');
+                    if (titleElement) {
+                        titleElement.textContent = 'Edit Profile - ' + (payload.first_name || payload.new_username || '{{ user.username }}');
+                    }
                 } else {
                     showAlert(out.error || 'Failed to save', 'error');
                 }
