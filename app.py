@@ -475,7 +475,14 @@ def view_user_profile_by_username(username):
     profile = UserProfile.query.filter_by(user_id=user.id).first()
     friends = get_user_friends(user.id)
     me = User.query.get(session['user_id'])
-    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
+    links = []
+    try:
+        if profile and profile.privacy_settings:
+            ps = json.loads(profile.privacy_settings)
+            links = ps.get('links') or []
+    except Exception:
+        links = []
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends, links=links)
 
 @app.route('/user/<username>')
 def view_user_profile_by_username_alt(username):
@@ -491,7 +498,14 @@ def view_user_profile_by_username_alt(username):
     profile = UserProfile.query.filter_by(user_id=user.id).first()
     friends = get_user_friends(user.id)
     me = User.query.get(session['user_id'])
-    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
+    links = []
+    try:
+        if profile and profile.privacy_settings:
+            ps = json.loads(profile.privacy_settings)
+            links = ps.get('links') or []
+    except Exception:
+        links = []
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends, links=links)
 
 @app.route('/users/<int:user_id>')
 def view_user_profile(user_id):
@@ -504,7 +518,14 @@ def view_user_profile(user_id):
     profile = UserProfile.query.filter_by(user_id=user_id).first()
     friends = get_user_friends(user_id)
     me = User.query.get(session['user_id'])
-    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
+    links = []
+    try:
+        if profile and profile.privacy_settings:
+            ps = json.loads(profile.privacy_settings)
+            links = ps.get('links') or []
+    except Exception:
+        links = []
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends, links=links)
 
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
