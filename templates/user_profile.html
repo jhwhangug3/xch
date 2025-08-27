@@ -37,7 +37,7 @@
                 <div class="row g-3">
                     {% for f in friends %}
                     <div class="col-6 col-md-3">
-                        <a href="{{ url_for('view_user_profile', user_id=f.id) }}" class="text-decoration-none d-flex align-items-center gap-2">
+                        <a href="{{ url_for('view_user_profile_by_username', username=f.username) }}" class="text-decoration-none d-flex align-items-center gap-2">
                             {% if f.profile_picture %}
                                 <img src="{{ f.profile_picture }}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
                             {% else %}
