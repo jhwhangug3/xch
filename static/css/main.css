@@ -950,6 +950,12 @@ p {
     color: var(--white);
 }
 
+/* Minimal presence dot on avatar */
+.profile-avatar{position:relative}
+.presence-dot{position:absolute;bottom:4px;right:4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--white);background:#9aa0a6;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+.presence-dot.online{background:#22c55e}
+.presence-dot.offline{background:#9aa0a6}
+
 .section-card {
     background: var(--white);
     border-radius: var(--radius-md);
