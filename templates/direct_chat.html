@@ -187,29 +187,7 @@
         });
         (function() {
             const root = document.documentElement;
-            const stored = localStorage.getItem('theme');
-            if (stored === 'dark' || stored === 'light') {
-                root.setAttribute('data-theme', stored);
-            }
-            // Ask notification permission
-            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                try { Notification.requestPermission(); } catch (_) {}
-            }
-            function updateIcon(btn) {
-                const mode = root.getAttribute('data-theme');
-                btn.innerHTML = mode === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-            }
-            document.addEventListener('DOMContentLoaded', function() {
-                const btn = document.getElementById('themeToggle');
-                if (!btn) return;
-                updateIcon(btn);
-                btn.addEventListener('click', function() {
-                    const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                    root.setAttribute('data-theme', current);
-                    localStorage.setItem('theme', current);
-                    updateIcon(btn);
-                });
-            });
+            root.setAttribute('data-theme', 'dark');
         })();
     </script>
     <script>
