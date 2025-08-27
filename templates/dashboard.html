@@ -55,7 +55,7 @@
                                     {% for request in pending_requests %}
                                     <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
                                         <div class="d-flex align-items-center gap-2">
-                                            <a href="{{ url_for('view_user_profile', user_id=request.sender.id) }}" class="text-decoration-none">
+                                            <a href="{{ url_for('view_user_profile_by_username', username=request.sender.username) }}" class="text-decoration-none">
                                                 {% if request.sender.profile_picture %}
                                                     <img src="{{ request.sender.profile_picture }}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
                                                 {% else %}
@@ -63,7 +63,7 @@
                                                 {% endif %}
                                             </a>
                                             <div>
-                                                <a href="{{ url_for('view_user_profile', user_id=request.sender.id) }}" class="text-decoration-none"><strong>{{ request.sender.username }}</strong></a>
+                                                <a href="{{ url_for('view_user_profile_by_username', username=request.sender.username) }}" class="text-decoration-none"><strong>{{ request.sender.username }}</strong></a>
                                                 <small class="text-muted d-block">wants to be your friend</small>
                                             </div>
                                         </div>
@@ -87,7 +87,7 @@
                                         <div class="friends-grid">
                                             {% for friend in friends %}
                                             <div class="friend-item">
-                                                <a href="{{ url_for('view_user_profile', user_id=friend.id) }}" class="friend-avatar-link">
+                                                <a href="{{ url_for('view_user_profile_by_username', username=friend.username) }}" class="friend-avatar-link">
                                                     <div class="friend-avatar">
                                                         {% if friend.profile_picture %}
                                                             <img src="{{ friend.profile_picture }}" alt="" class="rounded-circle">
@@ -101,7 +101,7 @@
                                                         {% endif %}
                                                     </div>
                                                 </a>
-                                                <a href="{{ url_for('view_user_profile', user_id=friend.id) }}" class="friend-info-link">
+                                                <a href="{{ url_for('view_user_profile_by_username', username=friend.username) }}" class="friend-info-link">
                                                     <div class="friend-info">
                                                         <h6 class="friend-name">{{ friend.first_name or friend.username }}</h6>
                                                         <small class="friend-status">
