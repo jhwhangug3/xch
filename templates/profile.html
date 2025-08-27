@@ -92,7 +92,7 @@
                         <h4 class="section-title">
                             <i class="fas fa-link"></i>Links
                         </h4>
-                        <div id="linksList" class="mb-2" data-initial='{{ profile.links | tojson }}'></div>
+                        <div id="linksList" class="mb-2" data-initial='{{ (links or []) | tojson }}'></div>
                         <div class="d-flex gap-2 mb-3">
                             <input type="text" class="form-control" id="linkTitle" placeholder="Title (e.g., Website, YouTube)"/>
                             <input type="url" class="form-control" id="linkUrl" placeholder="https://..."/>
