@@ -595,7 +595,7 @@
                                 ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
                             </div>
                             <div class="message-content">
-                                ${this.linkify(message.content)}
+                                ${message.message_type === 'image' ? `<img src="${message.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>` : (message.message_type === 'file' ? `<a href="${message.content}" target="_blank" rel="noopener">${message.content.split('/').pop()}</a>` : this.linkify(message.content))}
                                 ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
                             </div>
                         </div>
@@ -818,15 +818,39 @@
         }
 
         // Handle file selection
-        document.getElementById('fileInput').addEventListener('change', function(event) {
+        document.getElementById('fileInput').addEventListener('change', async function(event) {
             const file = event.target.files[0];
-            if (file) {
-                // For now, just show the filename in the input
-                // In a full implementation, you'd upload the file and send a file message
-                const input = document.getElementById('messageInput');
-                input.value = `📎 ${file.name}`;
-                input.focus();
-                
+            if (!file) return;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch('/api/chat/upload', { method: 'POST', body: fd });
+                const out = await res.json();
+                if (!res.ok || !out.url) { alert(out.error || 'Upload failed'); return; }
+                // Send as an image or file message
+                const isImage = /^.*\.(png|jpe?g|gif|webp)$/i.test(file.name);
+                const payload = {
+                    content: out.url,
+                    message_type: isImage ? 'image' : 'file',
+                    receiver_id: window.ultraFastChatApp.otherUserId
+                };
+                await fetch('/api/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                // Optimistic UI: add temporary message
+                const temp = {
+                    id: 'temp_' + Date.now(),
+                    content: out.url,
+                    message_type: payload.message_type,
+                    sender_id: window.ultraFastChatApp.currentUserId,
+                    receiver_id: window.ultraFastChatApp.otherUserId,
+                    timestamp: new Date().toISOString().replace('T',' ').substring(0,19),
+                    is_temp: true
+                };
+                window.ultraFastChatApp.messages.push(temp);
+                window.ultraFastChatApp.displayMessages();
+                window.ultraFastChatApp.scrollToBottom(true);
+            } catch (e) {
+                alert('Upload failed');
+            } finally {
                 // Reset file input
                 event.target.value = '';
             }
