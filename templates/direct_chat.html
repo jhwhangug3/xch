@@ -53,6 +53,42 @@
                              </div>
                         </div>
                     </div>
+                    <!-- Chat Info Offcanvas Panel -->
+                    <div class="offcanvas offcanvas-end" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel">
+                        <div class="offcanvas-header">
+                            <h5 class="offcanvas-title" id="chatInfoLabel">Chat Info</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                        </div>
+                        <div class="offcanvas-body">
+                            <div class="mb-4">
+                                <h6 class="mb-2">Controls</h6>
+                                <div class="d-flex flex-column gap-2">
+                                    <button class="btn btn-secondary btn-sm" id="muteChatBtn"><i class="fas fa-bell-slash me-2"></i>Mute</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn"><i class="fas fa-thumbtack me-2"></i>Pin</button>
+                                    <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel"><i class="fas fa-trash me-2"></i>Clear chat</button>
+                                    <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <h6 class="mb-2">Media</h6>
+                                <div>
+                                    <div class="small text-muted mb-1">Pictures</div>
+                                    <div id="chatPictures" class="d-flex flex-wrap gap-2"></div>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="small text-muted mb-1">Files</div>
+                                    <div id="chatFiles" class="d-flex flex-column gap-1"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="mb-2">Tools</h6>
+                                <div class="d-flex flex-column gap-2">
+                                    <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
+                                    <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Chat Messages -->
                     <div class="chat-messages" id="chatMessages">
