@@ -265,6 +265,10 @@
                 this.lastRRCheckTs = 0; // last read-receipt check timestamp
                 this.otherIsTypingUntil = 0; // ms epoch until which we show typing
                 this.typingHeartbeat = null; // interval id for typing pings
+                this.typingTimeout = null; // timeout for typing indicator
+                this.autoScrollTimeout = null; // timeout for auto-scroll to prevent interruption
+                this.isUserAtBottom = true; // Track if user is at bottom
+                this.lastMessageCount = 0; // Track message count changes
                 
                 this.init();
             }
@@ -272,7 +276,9 @@
             init() {
                 this.loadMessages();
                 this.setupEventListeners();
-                this.startUltraFastPolling();
+                this.setupScrollDetection();
+                this.setupTypingSocket();
+                this.startMessagePolling();
                 this.setupMessageQueue();
                 this.installVisibilityHooks();
             }
@@ -351,6 +357,22 @@
                 });
             }
 
+            setupScrollDetection() {
+                // Detect when user scrolls to determine if they're at bottom
+                this.chatMessages.addEventListener('scroll', () => {
+                    const { scrollTop, scrollHeight, clientHeight } = this.chatMessages;
+                    // User is at bottom if they're within 50px of the bottom
+                    this.isUserAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+                    
+                    // Clear any pending auto-scroll timeouts when user manually scrolls
+                    // This prevents auto-scroll from interrupting user's reading
+                    if (this.autoScrollTimeout) {
+                        clearTimeout(this.autoScrollTimeout);
+                        this.autoScrollTimeout = null;
+                    }
+                });
+            }
+
             async loadMessages() {
                 try {
                     const response = await fetch(`/api/messages/${this.otherUserId}`);
@@ -364,11 +386,9 @@
                             this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
                         }
                         
-                        // Multiple scroll attempts to guarantee bottom positioning
+                        // Only scroll to bottom on first load
                         this.scrollToBottom(true);
-                        setTimeout(() => this.scrollToBottom(true), 50);
-                        setTimeout(() => this.scrollToBottom(true), 150);
-                        setTimeout(() => this.scrollToBottom(true), 300);
+                        this.lastMessageCount = messages.length;
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
@@ -399,8 +419,11 @@
                 // Display message immediately
                 this.messages.push(tempMessage);
                 this.displayMessages();
-                // Scroll on send
+                
+                // Always scroll to bottom when user sends a message
                 this.scrollToBottom(true);
+                this.isUserAtBottom = true;
+                
                 // Re-focus input to keep mobile keyboard open
                 try { this.messageInput.focus(); } catch (_) {}
                 try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
@@ -489,15 +512,19 @@
                                     const typingIndicator = document.createElement('div');
                                     typingIndicator.className = 'typing-indicator';
                                     typingIndicator.innerHTML = `
-                                        <small class=\"text-muted\">\n                                            <i class=\"fas fa-pencil-alt me-1\"></i>\n                                            ${this.otherUser} is typing<span class=\"typing-dots\">...</span>\n                                        </small>`;
-                                                                         this.chatMessages.appendChild(typingIndicator);
-                                     // Aggressive scroll to bottom when typing indicator appears
-                                     this.scrollToBottom(true);
-                                     setTimeout(() => this.scrollToBottom(true), 5);
-                                     setTimeout(() => this.scrollToBottom(true), 25);
-                                     setTimeout(() => this.scrollToBottom(true), 75);
-                                 }
-                                 clearTimeout(this.wsTypingTimeout);
+                                        <small class="text-muted">
+                                            <i class="fas fa-pencil-alt me-1"></i>
+                                            ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                        </small>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    
+                                    // Only scroll for typing indicator if user is at bottom
+                                    // This prevents interrupting user when they're reading history
+                                    if (this.isUserAtBottom) {
+                                        this.scrollToBottom(true);
+                                    }
+                                }
+                                clearTimeout(this.wsTypingTimeout);
                                 this.wsTypingTimeout = setTimeout(() => {
                                     const ex = document.querySelector('.typing-indicator');
                                     if (ex) ex.remove();
@@ -529,27 +556,39 @@
                             }
                             
                             this.displayMessages();
-                            // Scroll on receive
-                            this.scrollToBottom(true);
+                            
+                            // Only auto-scroll for incoming messages if user is at bottom
+                            // Never auto-scroll for outgoing messages or when user is reading history
+                            const incomingMessages = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
+                            if (incomingMessages.length > 0 && this.isUserAtBottom) {
+                                this.scrollToBottom(true);
+                            }
                             
                             // Notify for incoming messages from the other user
-                            const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
-                            if (incoming.length > 0) {
-                                const last = incoming[incoming.length - 1];
+                            if (incomingMessages.length > 0) {
+                                const last = incomingMessages[incomingMessages.length - 1];
                                 this.notifyNewMessage(this.otherUser, last.content || 'New message');
                             }
                             
                             // Update timestamp
                             this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
+                            this.lastMessageCount = this.messages.length;
                         }
 
-                        // Also process side-channel read ids immediately
+                        // Process read receipts without causing scrolling
                         if (readIdsSide.length > 0) {
+                            let needsUpdate = false;
                             for (const id of readIdsSide) {
                                 const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
-                                if (idx !== -1) this.messages[idx].is_read = true;
+                                if (idx !== -1 && !this.messages[idx].is_read) {
+                                    this.messages[idx].is_read = true;
+                                    needsUpdate = true;
+                                }
                             }
-                            this.displayMessages();
+                            // Only update UI if read status actually changed
+                            if (needsUpdate) {
+                                this.displayMessages();
+                            }
                         }
                     }
                 } catch (error) {
@@ -601,8 +640,6 @@
                         </div>
                     `;
                 }).join('') + typingHTML;
-
-                // Do not auto-scroll here; controlled by send/receive only
             }
 
             async pollTyping() {
@@ -621,13 +658,14 @@
                                     <i class="fas fa-pencil-alt me-1"></i>
                                     ${this.otherUser} is typing<span class="typing-dots">...</span>
                                 </small>`;
-                                                         this.chatMessages.appendChild(typingIndicator);
-                             // Aggressive scroll to bottom when typing indicator appears
-                             this.scrollToBottom(true);
-                             setTimeout(() => this.scrollToBottom(true), 5);
-                             setTimeout(() => this.scrollToBottom(true), 25);
-                             setTimeout(() => this.scrollToBottom(true), 75);
-                         }
+                            this.chatMessages.appendChild(typingIndicator);
+                            
+                            // Only scroll for typing if user is at bottom
+                            // This prevents interrupting user when they're reading history
+                            if (this.isUserAtBottom) {
+                                this.scrollToBottom(true);
+                            }
+                        }
                     } else {
                         // keep indicator a bit to avoid flicker
                         if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
@@ -654,35 +692,25 @@
             scrollToBottom(force = false) {
                 if (!this.chatMessages) return;
                 
-                // Multiple guaranteed approaches to scroll to bottom
-                const scrollToBottomGuaranteed = () => {
+                // Clear any existing auto-scroll timeout
+                if (this.autoScrollTimeout) {
+                    clearTimeout(this.autoScrollTimeout);
+                }
+                
+                // Use timeout to prevent rapid successive scroll calls
+                // This makes scrolling more natural and prevents flickering
+                this.autoScrollTimeout = setTimeout(() => {
                     try {
-                        // Method 1: Direct scrollTop assignment
-                        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-                        
-                        // Method 2: Use scrollTo with fallback
-                        setTimeout(() => {
-                            try {
-                                this.chatMessages.scrollTo({
-                                    top: this.chatMessages.scrollHeight,
-                                    behavior: force ? 'auto' : 'smooth'
-                                });
-                            } catch (e) {
-                                // Method 3: Force scroll with scrollTop
-                                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-                            }
-                        }, 10);
+                        this.chatMessages.scrollTo({
+                            top: this.chatMessages.scrollHeight,
+                            behavior: force ? 'auto' : 'smooth'
+                        });
                     } catch (e) {
-                        // Ultimate fallback
+                        // Fallback for older browsers
                         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                     }
-                };
-                
-                if (force) {
-                    scrollToBottomGuaranteed();
-                } else {
-                    requestAnimationFrame(scrollToBottomGuaranteed);
-                }
+                    this.autoScrollTimeout = null;
+                }, force ? 0 : 50); // Immediate for force, small delay for smooth
             }
 
             isNearBottom(thresholdPx = 80) {
@@ -697,17 +725,30 @@
                 }
             }
 
-            startUltraFastPolling() {
-                // Check for new messages more frequently to prevent loss
-                setInterval(() => { this.checkForNewMessages(); }, 400);
-                // Poll other user's typing status
-                setInterval(() => { this.pollTyping(); }, 300);
-                // Poll read receipts to update sent message status quickly
-                setInterval(() => { this.pollReadReceipts(); }, 500);
+            startMessagePolling() {
+                // Keep ultra-fast polling for instant updates
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        this.checkForNewMessages();
+                    }
+                }, 400);
+                
+                // Poll other user's typing status every 1 second for responsiveness
+                setInterval(() => { 
+                    if (document.visibilityState === 'visible') {
+                        this.pollTyping(); 
+                    }
+                }, 1000);
+                
+                // Poll read receipts every 400ms for instant feedback
+                setInterval(() => { 
+                    if (document.visibilityState === 'visible') {
+                        this.pollReadReceipts(); 
+                    }
+                }, 400);
+                
                 // Short burst right after opening
                 this.startReadBurst();
-                // Additional message recovery check every 5 seconds
-                setInterval(() => { this.recoverLostMessages(); }, 5000);
             }
 
             async recoverLostMessages() {
@@ -751,13 +792,19 @@
                     const data = await res.json();
                     if (Array.isArray(data.read_ids) && data.read_ids.length > 0) {
                         // Mark corresponding outgoing messages as read in UI
+                        let needsUpdate = false;
                         for (const id of data.read_ids) {
                             const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
-                            if (idx !== -1) {
+                            if (idx !== -1 && !this.messages[idx].is_read) {
                                 this.messages[idx].is_read = true;
+                                needsUpdate = true;
                             }
                         }
-                        this.displayMessages();
+                        // Only update UI if read status actually changed
+                        // This prevents unnecessary DOM updates that cause flickering
+                        if (needsUpdate) {
+                            this.displayMessages();
+                        }
                     }
                     if (typeof data.latest === 'number') this.lastRRCheckTs = data.latest;
                 } catch (e) {}
