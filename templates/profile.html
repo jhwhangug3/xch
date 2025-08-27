@@ -11,175 +11,125 @@
 </head>
 <body>
     <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="profile-container pf-settings">
-                    <!-- Profile Header -->
-                    <div class="profile-header">
-                        <div class="profile-avatar overflow-hidden d-flex align-items-center justify-content-center">
-                            {% if user.profile_picture or profile.profile_picture %}
-                                <img src="{{ user.profile_picture or profile.profile_picture }}" alt="Avatar" class="img-fluid" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                            {% else %}
-                                <i class="fas fa-user"></i>
-                            {% endif %}
-                            <span id="presenceDot" class="presence-dot offline" aria-label="presence"></span>
+        <div class="settings-sheet">
+            <div class="settings-header">
+                <a href="{{ url_for('dashboard') }}" class="back-button"><i class="fas fa-arrow-left"></i></a>
+                <h1 class="settings-title">Edit Profile</h1>
+                <span></span>
+            </div>
+
+            <ul class="settings-list">
+                <li class="settings-item avatar-row">
+                    <div class="settings-label">Profile Picture</div>
+                    <div class="settings-control">
+                        <div class="avatar-editor">
+                            <div class="avatar-wrap">
+                                <div class="avatar-preview" id="avatarPreview" style="cursor:pointer">
+                                    {% if user.profile_picture or profile.profile_picture %}
+                                    <img id="avatarImg" src="{{ user.profile_picture or profile.profile_picture }}" alt="Avatar">
+                                    {% else %}
+                                    <img id="avatarImg" src="" alt="Avatar">
+                                    {% endif %}
+                                    <div class="avatar-overlay"></div>
+                                </div>
+                                <button class="avatar-edit-btn" type="button" id="avatarPickBtn"><i class="fas fa-camera"></i></button>
+                            </div>
+                            <div class="avatar-menu" id="avatarMenu">
+                                <button type="button" id="avatarMenuUpload"><i class="fas fa-upload me-2"></i>Upload photo</button>
+                                <button type="button" id="avatarMenuDelete"><i class="fas fa-trash me-2"></i>Remove photo</button>
+                            </div>
+                            <div class="avatar-actions"></div>
                         </div>
-                        <h2 class="mb-2">{{ user.first_name or user.username }}</h2>
-                        <p class="text-muted">@{{ user.username }}</p>
-                        <div class="mt-3">
-                            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-2">
-                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                            </a>
+                        <form id="avatarForm" enctype="multipart/form-data" class="d-none">
+                            <input type="file" id="picture" name="picture" accept="image/*">
+                        </form>
+                    </div>
+                </li>
+
+                <!-- Username (moved up) -->
+                <li class="settings-item">
+                    <div class="settings-label">Username</div>
+                    <div class="settings-control">
+                        <form id="usernameForm" class="d-flex gap-2 w-100">
+                            <div class="form-floating flex-grow-1">
+                                <input type="text" class="form-control" id="new_username" name="new_username" value="{{ user.username }}" placeholder="New username" required>
+                                <label for="new_username">New username</label>
+                            </div>
+                        </form>
+                    </div>
+                </li>
+
+                <!-- Name -->
+                <li class="settings-item">
+                    <div class="settings-label">Name</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name or user.username or '' }}" placeholder="Name">
+                            <label for="first_name">Name</label>
                         </div>
                     </div>
+                </li>
 
-                    <div class="settings-grid">
-                        <!-- Avatar Upload -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-image"></i>Profile Picture</h4>
-                            <div class="setting-body">
-                                <form id="avatarForm" enctype="multipart/form-data">
-                                    <div class="setting-row">
-                                        <input class="form-control" type="file" id="picture" name="picture" accept="image/*">
-                                        <div class="setting-actions">
-                                            <button class="btn btn-primary" type="submit"><i class="fas fa-upload me-2"></i>Upload</button>
-                                            <button class="btn btn-outline-danger" type="button" id="deletePicture"><i class="fas fa-trash me-2"></i>Delete</button>
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">Max 5MB. PNG, JPG, JPEG, GIF, WEBP.</small>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Basic Information -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-user-edit"></i>Basic Information</h4>
-                            <div class="setting-body">
-                                <form id="basicInfoForm">
-                                    <div class="row g-2">
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control" id="first_name" name="first_name" 
-                                                       value="{{ user.first_name or '' }}" placeholder="First Name">
-                                                <label for="first_name"><i class="fas fa-user me-2"></i>First Name</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text" class="form-control" id="last_name" name="last_name" 
-                                                       value="{{ user.last_name or '' }}" placeholder="Last Name">
-                                                <label for="last_name"><i class="fas fa-user me-2"></i>Last Name</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="form-floating">
-                                        <textarea class="form-control" id="bio" name="bio" rows="3" 
-                                                  placeholder="Tell us about yourself">{{ profile.bio or '' }}</textarea>
-                                        <label for="bio"><i class="fas fa-info-circle me-2"></i>Bio</label>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-2"></i>Save Changes
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Links -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-link"></i>Links</h4>
-                            <div class="setting-body">
-                                <div id="linksList" class="mb-2" data-initial='{{ (links or []) | tojson }}'></div>
-                                <div class="setting-row">
-                                    <input type="text" class="form-control" id="linkTitle" placeholder="Title"/>
-                                    <input type="url" class="form-control" id="linkUrl" placeholder="https://..."/>
-                                </div>
-                                <div class="setting-actions">
-                                    <button class="btn btn-outline-primary" id="addLinkBtn"><i class="fas fa-plus"></i></button>
-                                    <button class="btn btn-primary" id="saveLinksBtn"><i class="fas fa-save me-2"></i>Save Links</button>
-                                </div>
-                                <small class="text-muted d-block">Tip: Put @username in your bio to tag someone.</small>
-                            </div>
-                        </div>
-
-                        <!-- Local Information -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-globe"></i>Local</h4>
-                            <div class="setting-body">
-                                <div class="setting-row">
-                                    <i class="fas fa-clock text-primary"></i>
-                                    <div>
-                                        <div>Local Time</div>
-                                        <small class="text-muted" id="localTime">Loading...</small>
-                                    </div>
-                                </div>
-                                <div class="setting-row">
-                                    <div class="form-floating flex-grow-1">
-                                        <input type="text" class="form-control" id="location" name="location" value="{{ profile.location or '' }}" placeholder="City, Country" autocomplete="off">
-                                        <label for="location"><i class="fas fa-map-marker-alt me-2"></i>Location</label>
-                                        <div id="locationSuggestions" class="list-group" style="position:absolute; left:0; right:0; top:100%; z-index: 10; display:none; max-height: 220px; overflow:auto;"></div>
-                                    </div>
-                                </div>
-                                <div class="setting-row">
-                                    <div class="form-floating flex-grow-1">
-                                        <input type="text" class="form-control" id="timezone" name="timezone" value="{{ profile.timezone or 'UTC' }}" placeholder="Timezone (e.g., Asia/Dhaka)">
-                                        <label for="timezone"><i class="fas fa-clock me-2"></i>Timezone</label>
-                                    </div>
-                                </div>
-                                <div class="setting-actions">
-                                    <button class="btn btn-primary" id="saveLocationBtn" type="button"><i class="fas fa-save me-2"></i>Save</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Username Change -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-at"></i>Username</h4>
-                            <div class="setting-body">
-                                <form id="usernameForm">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" id="new_username" name="new_username" 
-                                               value="{{ user.username }}" placeholder="New Username" required>
-                                        <label for="new_username"><i class="fas fa-at me-2"></i>New Username</label>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-edit me-2"></i>Change Username
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Notifications -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-bell"></i>Notifications</h4>
-                            <div class="setting-body">
-                                <p class="text-muted mb-2">Enable push notifications for new messages.</p>
-                                <div class="setting-actions">
-                                    <button id="enableNotificationsBtn" class="btn btn-primary">
-                                        <i class="fas fa-bell me-2"></i>Allow notifications
-                                    </button>
-                                    <small id="notifStatus" class="text-muted"></small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Account Security -->
-                        <div class="setting-card">
-                            <h4 class="setting-title"><i class="fas fa-shield-alt"></i>Account</h4>
-                            <div class="setting-body">
-                                <div class="setting-row"><i class="fas fa-key text-success"></i><small>End-to-end encrypted</small></div>
-                                <div class="setting-row"><i class="fas fa-lock text-success"></i><small>Password protected</small></div>
-                                <div class="setting-actions">
-                                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                                    </a>
-                                    <button id="deleteAccountBtn" class="btn btn-danger">
-                                        <i class="fas fa-user-times me-2"></i>Delete Account
-                                    </button>
-                                </div>
-                            </div>
+                <!-- Bio -->
+                <li class="settings-item">
+                    <div class="settings-label">Bio</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <textarea class="form-control" id="bio" name="bio" rows="2" placeholder="Bio">{{ profile.bio or '' }}</textarea>
+                            <label for="bio">Write a short bio</label>
                         </div>
                     </div>
-                </div>
+                </li>
+
+                <!-- Links -->
+                <li class="settings-item">
+                    <div class="settings-label">Links</div>
+                    <div class="settings-control">
+                        <div id="linksList" class="w-100" data-initial='{{ (links or []) | tojson }}'></div>
+                        <input type="text" class="form-control" id="linkTitle" placeholder="Title" style="max-width:220px"/>
+                        <input type="url" class="form-control" id="linkUrl" placeholder="https://..."/>
+                        <button class="btn btn-outline-primary" id="addLinkBtn"><i class="fas fa-plus"></i></button>
+                    </div>
+                </li>
+
+                <!-- Local / Timezone -->
+                <li class="settings-item">
+                    <div class="settings-label">Local</div>
+                    <div class="settings-control">
+                        <div class="me-auto small text-muted" id="localTime">Loading…</div>
+                    </div>
+                </li>
+                <li class="settings-item">
+                    <div class="settings-label">Location</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100 position-relative">
+                            <input type="text" class="form-control" id="location" name="location" value="{{ profile.location or '' }}" placeholder="City, Country" autocomplete="off">
+                            <label for="location">City, Country</label>
+                            <div id="locationSuggestions" class="list-group" style="position:absolute; left:0; right:0; top:100%; z-index: 10; display:none; max-height: 220px; overflow:auto;"></div>
+                        </div>
+                    </div>
+                </li>
+                <li class="settings-item">
+                    <div class="settings-label">Timezone</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <input type="text" class="form-control" id="timezone" name="timezone" value="{{ profile.timezone or 'UTC' }}" placeholder="Timezone">
+                            <label for="timezone">e.g., Asia/Dhaka</label>
+                        </div>
+                    </div>
+                </li>
+
+                <!-- Settings: Notifications + Logout -->
+                <li class="settings-item">
+                    <div class="settings-label">Settings</div>
+                    <div class="settings-control">
+                        <small id="notifStatus" class="text-muted me-auto"></small>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
+                    </div>
+                </li>
+            </ul>
+            <div class="settings-footer">
+                <button id="saveAllBtn" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save All</button>
             </div>
         </div>
     </div>
@@ -187,32 +137,81 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Avatar upload
-        document.getElementById('avatarForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const input = document.getElementById('picture');
-            if (!input.files || !input.files[0]) return;
-            const data = new FormData();
-            data.append('picture', input.files[0]);
-            try {
-                const res = await fetch('/api/profile/upload-picture', { method: 'POST', body: data });
-                const out = await res.json();
-                if (res.ok) {
-                    showAlert('Profile picture updated!', 'success');
-                    const img = document.createElement('img');
-                    img.src = out.url;
-                    img.alt = 'Avatar';
-                    img.className = 'img-fluid';
-                    img.style = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
-                    const avatar = document.querySelector('.profile-avatar');
-                    avatar.innerHTML = '';
-                    avatar.appendChild(img);
-                } else {
-                    showAlert(out.error || 'Upload failed', 'error');
-                }
-            } catch (err) {
-                showAlert('Upload failed', 'error');
+        (function(){
+            const pickBtn = document.getElementById('avatarPickBtn');
+            const fileInput = document.getElementById('picture');
+            const previewImg = document.getElementById('avatarImg');
+            const previewBox = document.getElementById('avatarPreview');
+            const menu = document.getElementById('avatarMenu');
+            const menuUpload = document.getElementById('avatarMenuUpload');
+            const menuDelete = document.getElementById('avatarMenuDelete');
+            function makeInitialsPlaceholder(letter, size){
+                const s = size || 96;
+                const bg = '#1a1a1a';
+                const fg = '#ffffff';
+                const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='${s}' height='${s}' viewBox='0 0 ${s} ${s}'><rect width='100%' height='100%' rx='${s/2}' ry='${s/2}' fill='${bg}'/><text x='50%' y='58%' text-anchor='middle' font-size='${Math.round(s*0.45)}' font-family='Inter,Segoe UI,Roboto,sans-serif' fill='${fg}' font-weight='600'>${letter}</text></svg>`;
+                return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
             }
-        });
+            // If no avatar image, show initial placeholder
+            try {
+                if (!previewImg.getAttribute('src')) {
+                    const letter = ('{{ (user.first_name or user.username or "?")[:1] }}' || '?').toUpperCase();
+                    previewImg.src = makeInitialsPlaceholder(letter, 96);
+                }
+            } catch(_) {}
+            function toggleMenu(show){ if (!menu) return; menu.classList[show?'add':'remove']('show'); }
+            function openPicker(){ if (fileInput) fileInput.click(); }
+
+            // Avatar click opens menu
+            if (previewBox) {
+                previewBox.addEventListener('click', function(e){ e.stopPropagation(); if (menu) toggleMenu(true); else openPicker(); });
+            }
+            if (pickBtn) {
+                pickBtn.addEventListener('click', function(e){ e.stopPropagation(); if (menu) toggleMenu(true); else openPicker(); });
+            }
+            if (menu) {
+                document.addEventListener('click', function(){ toggleMenu(false); });
+                menu.addEventListener('click', function(e){ e.stopPropagation(); });
+            }
+            if (menuUpload) menuUpload.addEventListener('click', function(){ toggleMenu(false); openPicker(); });
+            if (menuDelete) menuDelete.addEventListener('click', async function(){
+                toggleMenu(false);
+                try {
+                    const res = await fetch('/api/profile/delete-picture', { method: 'POST' });
+                    const out = await res.json();
+                    if (res.ok) {
+                        showAlert('Profile picture deleted', 'success');
+                        const letter = ('{{ (user.first_name or user.username or "?")[:1] }}' || '?').toUpperCase();
+                        previewImg.src = makeInitialsPlaceholder(letter, 96);
+                    } else {
+                        showAlert(out.error || 'Delete failed', 'error');
+                    }
+                } catch (_) { showAlert('Delete failed', 'error'); }
+            });
+
+            if (fileInput) {
+                fileInput.addEventListener('change', async function(){
+                    if (!fileInput.files || !fileInput.files[0]) return;
+                    const data = new FormData();
+                    data.append('picture', fileInput.files[0]);
+                    try {
+                        const res = await fetch('/api/profile/upload-picture', { method: 'POST', body: data });
+                        const out = await res.json();
+                        if (res.ok && out.url) {
+                            showAlert('Profile picture updated!', 'success');
+                            previewImg.src = out.url;
+                        } else {
+                            showAlert(out.error || 'Upload failed', 'error');
+                        }
+                    } catch (_) {
+                        showAlert('Upload failed', 'error');
+                    } finally {
+                        fileInput.value = '';
+                        toggleMenu(false);
+                    }
+                });
+            }
+        })();
 
         document.getElementById('deletePicture').addEventListener('click', async function() {
             if (!confirm('Delete profile picture?')) return;
@@ -230,40 +229,38 @@
             }
         });
 
-        // Basic Information Form
-        document.getElementById('basicInfoForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = {
-                first_name: document.getElementById('first_name').value,
-                last_name: document.getElementById('last_name').value,
-                bio: document.getElementById('bio').value
-            };
-            
-            try {
-                const response = await fetch('/api/profile/update', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showAlert('Profile updated successfully!', 'success');
-                    // Update display name in header
-                    document.querySelector('.profile-header h2').textContent = 
-                        formData.first_name || document.getElementById('new_username').value;
-                } else {
-                    showAlert(result.error || 'Failed to update profile', 'error');
+        // Basic Information Form (legacy guard - only if present)
+        (function(){
+            const formEl = document.getElementById('basicInfoForm');
+            if (!formEl) return;
+            formEl.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const firstNameEl = document.getElementById('first_name');
+                const bioEl = document.getElementById('bio');
+                const formData = {
+                    first_name: firstNameEl ? firstNameEl.value : '',
+                    last_name: '',
+                    bio: bioEl ? bioEl.value : ''
+                };
+                try {
+                    const response = await fetch('/api/profile/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showAlert('Profile updated successfully!', 'success');
+                        document.querySelector('.profile-header h2').textContent = formData.first_name || (document.getElementById('new_username') && document.getElementById('new_username').value) || '{{ user.username }}';
+                    } else {
+                        showAlert(result.error || 'Failed to update profile', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating profile:', error);
+                    showAlert('Failed to update profile', 'error');
                 }
-            } catch (error) {
-                console.error('Error updating profile:', error);
-                showAlert('Failed to update profile', 'error');
-            }
-        });
+            });
+        })();
 
         // Username Change Form
         document.getElementById('usernameForm').addEventListener('submit', async function(e) {
@@ -454,18 +451,17 @@
             const tzInput = document.getElementById('timezone');
             let timer = null;
             let lastQuery = '';
-            function hideList(){ list.style.display = 'none'; list.innerHTML = ''; }
-            function showList(){ list.style.display = ''; }
-            function debounce(fn, ms){
-                return function(...args){ clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), ms); };
-            }
+            function hideList(){ if(list){ list.style.display = 'none'; list.innerHTML = ''; } }
+            function showList(){ if(list){ list.style.display = ''; } }
+            function debounce(fn, ms){ return function(...args){ clearTimeout(timer); timer = setTimeout(()=>fn.apply(this,args), ms); }; }
             async function fetchPlaces(q){
+                if (!q || q.length < 2) return [];
                 try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
                     if (!res.ok) return [];
-                    return await res.json();
-                } catch (_) { return []; }
+                    const data = await res.json();
+                    return Array.isArray(data) ? data : [];
+                } catch(_) { return []; }
             }
             async function fetchTimezone(lat, lon){
                 try {
@@ -479,37 +475,31 @@
             async function onSelect(item){
                 input.value = item.display_name || '';
                 hideList();
-                // Try to resolve timezone automatically
                 const tz = await fetchTimezone(item.lat, item.lon);
-                if (tz) {
-                    tzInput.value = tz;
-                    MY_TIMEZONE = tz;
-                    updateLocalTime();
-                }
+                if (tz && tzInput) { tzInput.value = tz; MY_TIMEZONE = tz; updateLocalTime(); }
             }
             const onInput = debounce(async function(){
+                if (!input || !list) return;
                 const q = input.value.trim();
                 if (!q || q === lastQuery) { hideList(); return; }
                 lastQuery = q;
                 const items = await fetchPlaces(q);
                 if (!items || items.length === 0) { hideList(); return; }
                 list.innerHTML = '';
-                items.forEach((it, idx) => {
-                    const a = document.createElement('button');
-                    a.type = 'button';
-                    a.className = 'list-group-item list-group-item-action';
-                    a.textContent = it.display_name;
-                    a.addEventListener('click', () => onSelect(it));
-                    list.appendChild(a);
+                items.forEach((it)=>{
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action';
+                    btn.textContent = it.display_name;
+                    btn.addEventListener('click', ()=> onSelect(it));
+                    list.appendChild(btn);
                 });
                 showList();
-            }, 250);
+            }, 300);
             if (input && list) {
                 input.addEventListener('input', onInput);
-                input.addEventListener('focus', () => { if (list.childElementCount > 0) showList(); });
-                document.addEventListener('click', (e) => {
-                    if (!list.contains(e.target) && e.target !== input) hideList();
-                });
+                input.addEventListener('focus', ()=> { if (list.childElementCount > 0) showList(); });
+                document.addEventListener('click', (e)=>{ if (!list.contains(e.target) && e.target !== input) hideList(); });
             }
         })();
 
@@ -604,6 +594,45 @@
                     toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>Show Friends';
                 }
             });
+        });
+
+        // Save All (gathers all fields and saves in one request)
+        async function saveAll() {
+            const payload = {
+                first_name: (document.getElementById('first_name') && document.getElementById('first_name').value) || '',
+                last_name: '',
+                bio: document.getElementById('bio').value,
+                links: linksState,
+                location: document.getElementById('location').value,
+                timezone: document.getElementById('timezone').value,
+                new_username: document.getElementById('new_username').value,
+            };
+            try {
+                const res = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const out = await res.json();
+                if (res.ok) {
+                    showAlert('Profile saved', 'success');
+                    // locally update header
+                    document.querySelector('.profile-header h2').textContent = payload.first_name || payload.new_username || '{{ user.username }}';
+                } else {
+                    showAlert(out.error || 'Failed to save', 'error');
+                }
+            } catch (_) {
+                showAlert('Failed to save', 'error');
+            }
+        }
+        document.getElementById('saveAllBtn').addEventListener('click', saveAll);
+
+        // Debounced autosave on change
+        function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+        const autoSave = debounce(saveAll, 700);
+        ['first_name','bio','location','timezone','new_username'].forEach(id=>{
+            const el = document.getElementById(id);
+            if (el) { el.addEventListener('input', autoSave); }
         });
     </script>
 </body>
