@@ -1379,6 +1379,18 @@ p {
     --border-hover: #3a3a3a;
 }
 
+/* Readability tweaks for dark theme */
+[data-theme="dark"] a{color:#7db4ff}
+[data-theme="dark"] a:hover{color:#a5c9ff}
+[data-theme="dark"] .text-muted, [data-theme="dark"] small{color:var(--gray-700)!important}
+[data-theme="dark"] .card{background:var(--gray-50);border:1px solid var(--border)}
+[data-theme="dark"] .dashboard-content, [data-theme="dark"] .profile-container, [data-theme="dark"] .chat-container{background:transparent}
+/* Make sticky header match dark background */
+.pf-header{background:rgba(11,11,11,0.85)!important;border-bottom:1px solid var(--border)!important}
+/* Ensure section surfaces have adequate contrast when used */
+.pf-friend{background:#151515}
+.pf-friend:hover{background:#1b1b1b}
+
 /* Improve outline button variants for readability in both themes */
 .btn-outline-light {
     background: transparent;
