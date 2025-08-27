@@ -20,6 +20,8 @@ except ImportError:
     WebPushException = Exception
 import json
 import base64
+from markupsafe import Markup, escape
+import re
 
 app = Flask(__name__)
 # Use stable secret from env if provided to persist sessions across restarts
@@ -530,6 +532,43 @@ def update_profile():
         profile.display_name = data['display_name'].strip()
     if 'theme_preference' in data:
         profile.theme_preference = data['theme_preference']
+    
+    # Update notification settings
+    if 'notification_settings' in data:
+        try:
+            existing_settings = json.loads(profile.notification_settings) if profile.notification_settings else {}
+        except Exception:
+            existing_settings = {}
+        existing_settings.update(data['notification_settings'])
+        profile.notification_settings = json.dumps(existing_settings)
+    
+    # Update privacy settings
+    if 'privacy_settings' in data:
+        try:
+            existing_settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+        except Exception:
+            existing_settings = {}
+        existing_settings.update(data['privacy_settings'])
+        profile.privacy_settings = json.dumps(existing_settings)
+
+    # Store links array separately inside privacy_settings
+    if 'links' in data and isinstance(data['links'], list):
+        try:
+            settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+        except Exception:
+            settings = {}
+        # Normalize links: keep only allowed keys
+        normalized = []
+        for link in data['links']:
+            if not isinstance(link, dict):
+                continue
+            title = (link.get('title') or '').strip()
+            url = (link.get('url') or '').strip()
+            if not url:
+                continue
+            normalized.append({'title': title[:60], 'url': url[:512]})
+        settings['links'] = normalized
+        profile.privacy_settings = json.dumps(settings)
     
     profile.last_updated = datetime.utcnow()
     db.session.commit()
@@ -1391,6 +1430,149 @@ def init_database():
 
 # Initialize database when app starts
 init_database()
+
+# Presence and Location APIs
+@app.route('/api/presence/ping', methods=['POST'])
+def presence_ping():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    user.is_online = True
+    user.last_login = datetime.utcnow()
+    try:
+        with session_lock:
+            user_sessions[user.id] = {
+                'last_activity': time.time(),
+                'public_key': user.public_key,
+                'is_online': True
+            }
+    except Exception:
+        pass
+    db.session.commit()
+    return jsonify({'ok': True, 'ts': int(time.time())})
+
+# Mark user as active on every request for precise presence
+@app.before_request
+def _mark_active_request():
+    try:
+        uid = session.get('user_id')
+        if uid:
+            with session_lock:
+                sess = user_sessions.get(uid) or {}
+                sess['last_activity'] = time.time()
+                sess['is_online'] = True
+                sess['public_key'] = sess.get('public_key')
+                user_sessions[uid] = sess
+            # Opportunistically set DB flag without heavy writes more often than every 60s
+            u = User.query.get(uid)
+            if u:
+                now = datetime.utcnow()
+                if not u.last_login or (now - (u.last_login or now)).total_seconds() > 60:
+                    u.last_login = now
+                    u.is_online = True
+                    db.session.commit()
+    except Exception:
+        pass
+
+# Presence window configuration (seconds)
+_PRESENCE_WINDOW_S = 30
+
+@app.route('/api/presence/<int:user_id>')
+def presence_get(user_id):
+    u = User.query.get(user_id)
+    if not u or not u.is_active:
+        return jsonify({'online': False, 'last_seen': None})
+    active_recent = False
+    try:
+        with session_lock:
+            s = user_sessions.get(user_id)
+            if s and (time.time() - s.get('last_activity', 0)) < _PRESENCE_WINDOW_S:
+                active_recent = True
+    except Exception:
+        pass
+    online = bool(active_recent)
+    last_seen = (u.last_login.isoformat() if u.last_login else None)
+    return jsonify({'online': online, 'last_seen': last_seen})
+
+@app.route('/api/presence/bulk')
+def presence_bulk():
+    ids_param = request.args.get('ids', '')
+    try:
+        ids = [int(x) for x in ids_param.split(',') if x.strip()]
+    except Exception:
+        ids = []
+    result = {}
+    now = time.time()
+    with session_lock:
+        for uid in ids:
+            s = user_sessions.get(uid) or {}
+            online = (now - s.get('last_activity', 0)) < _PRESENCE_WINDOW_S
+            result[str(uid)] = {'online': online}
+    return jsonify(result)
+
+@app.route('/api/profile/update-location', methods=['POST'])
+def update_location():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    data = request.get_json() or {}
+    lat = data.get('lat')
+    lon = data.get('lon')
+    tz = (data.get('timezone') or '').strip() or None
+    if lat is None or lon is None:
+        return jsonify({'error': 'lat and lon required'}), 400
+    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+    if not profile:
+        profile = UserProfile(user_id=session['user_id'])
+        db.session.add(profile)
+        db.session.flush()
+    # Store in privacy_settings JSON
+    try:
+        existing = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+    except Exception:
+        existing = {}
+    existing['location'] = {'lat': float(lat), 'lon': float(lon)}
+    if tz:
+        profile.timezone = tz
+        existing['timezone'] = tz
+    profile.privacy_settings = json.dumps(existing)
+    profile.last_updated = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/profile/location/<int:user_id>')
+def get_location(user_id):
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        return jsonify({'error': 'User not found'}), 404
+    profile = UserProfile.query.filter_by(user_id=user_id).first()
+    data = {'lat': None, 'lon': None, 'timezone': None}
+    if profile:
+        try:
+            settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+        except Exception:
+            settings = {}
+        loc = settings.get('location') or {}
+        data['lat'] = loc.get('lat')
+        data['lon'] = loc.get('lon')
+        data['timezone'] = settings.get('timezone') or profile.timezone
+    return jsonify(data)
+
+# Jinja filter to linkify @username mentions and URLs in bio safely
+@app.template_filter('linkify_bio')
+def linkify_bio(text):
+    if not text:
+        return ''
+    try:
+        s = escape(text)
+        # Linkify @username (letters, numbers, underscores, dots, hyphens)
+        s = re.sub(r'@([A-Za-z0-9_\.\-]+)', r'<a href="/@\1">@\1</a>', s)
+        # Linkify URLs (http/https)
+        s = re.sub(r'(https?://[\w\-._~:/?#\[\]@!$&\'()*+,;=%]+)', r'<a href="\1" target="_blank" rel="noopener">\1</a>', s)
+        return Markup(s)
+    except Exception:
+        return escape(text)
 
 
 if __name__ == '__main__':
