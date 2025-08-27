@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,6 +22,7 @@
                             {% else %}
                                 <i class="fas fa-user"></i>
                             {% endif %}
+                            <span id="presenceDot" class="presence-dot offline" aria-label="presence"></span>
                         </div>
                         <h2 class="mb-2">{{ user.first_name or user.username }}</h2>
                         <p class="text-muted">@{{ user.username }}</p>
@@ -118,14 +119,19 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center mb-3">
-                                    <i class="fas fa-map-marker-alt text-success me-3 fa-lg"></i>
-                                    <div>
-                                        <h6 class="mb-1">Location</h6>
-                                        <small class="text-muted" id="userLocation">Loading...</small>
-                                        <div class="mt-2">
-                                            <button class="btn btn-sm btn-outline-primary" id="shareLocationBtn" type="button" style="display:none;">Share precise location</button>
-                                        </div>
+                                <div class="mb-3">
+                                    <div class="form-floating mb-2 position-relative">
+                                        <input type="text" class="form-control" id="location" name="location" value="{{ profile.location or '' }}" placeholder="City, Country" autocomplete="off">
+                                        <label for="location"><i class="fas fa-map-marker-alt me-2"></i>Location</label>
+                                        <div id="locationSuggestions" class="list-group" style="position:absolute; left:0; right:0; top:100%; z-index: 10; display:none; max-height: 220px; overflow:auto;"></div>
+                                    </div>
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="timezone" name="timezone" value="{{ profile.timezone or 'UTC' }}" placeholder="Timezone (e.g., Asia/Dhaka)">
+                                        <label for="timezone"><i class="fas fa-clock me-2"></i>Timezone (e.g., Asia/Dhaka)</label>
+                                    </div>
+                                    <div class="mt-2 d-flex gap-2">
+                                        <button class="btn btn-primary" id="saveLocationBtn" type="button"><i class="fas fa-save me-2"></i>Save</button>
+                                        <small class="text-muted">We compute time from your timezone.</small>
                                     </div>
                                 </div>
                             </div>
@@ -403,7 +409,7 @@
         document.getElementById('enableNotificationsBtn').addEventListener('click', enableNotifications);
 
         // Local time and location functionality
-        const MY_TIMEZONE = "{{ (profile.timezone or 'UTC') }}";
+        let MY_TIMEZONE = "{{ (profile.timezone or 'UTC') }}";
         function updateLocalTime() {
             try {
                 const formatter = new Intl.DateTimeFormat([], {
@@ -428,75 +434,114 @@
 
         // Presence heartbeat + location reporting
         async function heartbeatPresence() {
-            try { await fetch('/api/presence/ping', { method: 'POST' }); } catch (e) {}
-        }
-
-        function setDerivedLocationFromTZ(tz) {
             try {
-                if (tz && tz.includes('/')) {
-                    const [region, cityRaw] = [tz.split('/')[0], tz.split('/').slice(1).join('/')];
-                    const city = cityRaw.replace(/_/g, ' ');
-                    document.getElementById('userLocation').textContent = `${city}, ${region}`;
+                const res = await fetch('/api/presence/ping', { method: 'POST' });
+                const dot = document.getElementById('presenceDot');
+                if (res && res.ok) {
+                    dot && (dot.classList.add('online'), dot.classList.remove('offline'));
                 } else {
-                    document.getElementById('userLocation').textContent = tz || 'Location unavailable';
+                    dot && (dot.classList.add('offline'), dot.classList.remove('online'));
                 }
             } catch (e) {
-                document.getElementById('userLocation').textContent = 'Location unavailable';
+                const dot = document.getElementById('presenceDot');
+                dot && (dot.classList.add('offline'), dot.classList.remove('online'));
             }
         }
 
-        async function sendLocation(lat, lon, tz) {
+        // Save location/timezone and time updater
+        document.getElementById('saveLocationBtn').addEventListener('click', async function() {
+            const locationVal = document.getElementById('location').value.trim();
+            const timezoneVal = document.getElementById('timezone').value.trim() || 'UTC';
             try {
-                await fetch('/api/profile/update-location', {
+                const res = await fetch('/api/profile/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lat, lon, timezone: tz })
+                    body: JSON.stringify({ location: locationVal, timezone: timezoneVal })
                 });
-                // Show privacy-friendly city/region derived from timezone instead of coordinates
-                setDerivedLocationFromTZ(tz);
+                const out = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    MY_TIMEZONE = timezoneVal;
+                    updateLocalTime();
+                    showAlert('Location settings saved', 'success');
+                } else {
+                    showAlert(out.error || 'Failed to save location', 'error');
+                }
             } catch (e) {
-                // fallback to TZ-derived
-                setDerivedLocationFromTZ(Intl.DateTimeFormat().resolvedOptions().timeZone);
+                showAlert('Failed to save location', 'error');
             }
-        }
+        });
 
-        function requestLocationInteractive() {
-            const locEl = document.getElementById('userLocation');
-            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            if (!navigator.geolocation) {
-                setDerivedLocationFromTZ(tz);
-                return;
+        // Debounced global place autocomplete using OpenStreetMap Nominatim
+        (function(){
+            const input = document.getElementById('location');
+            const list = document.getElementById('locationSuggestions');
+            const tzInput = document.getElementById('timezone');
+            let timer = null;
+            let lastQuery = '';
+            function hideList(){ list.style.display = 'none'; list.innerHTML = ''; }
+            function showList(){ list.style.display = ''; }
+            function debounce(fn, ms){
+                return function(...args){ clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), ms); };
             }
-            locEl.textContent = 'Requesting precise location…';
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    sendLocation(pos.coords.latitude, pos.coords.longitude, tz);
-                },
-                err => {
-                    if (err.code === err.PERMISSION_DENIED) {
-                        locEl.textContent = 'Permission denied. Click “Share precise location”.';
-                        document.getElementById('shareLocationBtn').style.display = '';
-                    } else {
-                        locEl.textContent = 'Unable to get location. Using timezone.';
-                        setDerivedLocationFromTZ(tz);
-                        document.getElementById('shareLocationBtn').style.display = '';
-                    }
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        }
-
-        async function reportLocation() {
-            // first attempt silently (may prompt depending on browser policy), then show button
-            requestLocationInteractive();
-            setTimeout(() => { document.getElementById('shareLocationBtn').style.display = ''; }, 3000);
-        }
+            async function fetchPlaces(q){
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) return [];
+                    return await res.json();
+                } catch (_) { return []; }
+            }
+            async function fetchTimezone(lat, lon){
+                try {
+                    const url = `https://api.open-meteo.com/v1/timezone?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    const data = await res.json();
+                    return data && data.timezone ? data.timezone : null;
+                } catch(_) { return null; }
+            }
+            async function onSelect(item){
+                input.value = item.display_name || '';
+                hideList();
+                // Try to resolve timezone automatically
+                const tz = await fetchTimezone(item.lat, item.lon);
+                if (tz) {
+                    tzInput.value = tz;
+                    MY_TIMEZONE = tz;
+                    updateLocalTime();
+                }
+            }
+            const onInput = debounce(async function(){
+                const q = input.value.trim();
+                if (!q || q === lastQuery) { hideList(); return; }
+                lastQuery = q;
+                const items = await fetchPlaces(q);
+                if (!items || items.length === 0) { hideList(); return; }
+                list.innerHTML = '';
+                items.forEach((it, idx) => {
+                    const a = document.createElement('button');
+                    a.type = 'button';
+                    a.className = 'list-group-item list-group-item-action';
+                    a.textContent = it.display_name;
+                    a.addEventListener('click', () => onSelect(it));
+                    list.appendChild(a);
+                });
+                showList();
+            }, 250);
+            if (input && list) {
+                input.addEventListener('input', onInput);
+                input.addEventListener('focus', () => { if (list.childElementCount > 0) showList(); });
+                document.addEventListener('click', (e) => {
+                    if (!list.contains(e.target) && e.target !== input) hideList();
+                });
+            }
+        })();
 
         document.addEventListener('DOMContentLoaded', function() {
             heartbeatPresence();
             setInterval(heartbeatPresence, 10000);
-            document.getElementById('shareLocationBtn').addEventListener('click', requestLocationInteractive);
-            reportLocation();
+            updateLocalTime();
+            setInterval(updateLocalTime, 1000);
         });
 
         // Links management
@@ -515,12 +560,6 @@
         let linksState = [];
         async function loadLinks() {
             try {
-                // Reuse existing profile JSON exposed via a meta tag may not exist; fetch from self location endpoint for timezone/links
-                const res = await fetch('/api/profile/location/' + {{ user.id }});
-                const loc = await res.json();
-            } catch (e) {}
-            try {
-                // Fetch full profile via minimal endpoint by rendering hidden JSON from server is not present; instead, try to get links via a small hack: the server stores in privacy_settings, no public endpoint. We'll initialize empty and let user add.
                 const el = document.getElementById('linksList');
                 const initial = el.getAttribute('data-initial');
                 linksState = initial ? JSON.parse(initial) : [];
@@ -561,6 +600,35 @@
             } catch (e) { showAlert('Failed to save links', 'error'); }
         });
         document.addEventListener('DOMContentLoaded', loadLinks);
+
+        // Collapsible Friends Section (hidden until clicked)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create section shell
+            const container = document.querySelector('.profile-container');
+            const friendsSection = document.createElement('div');
+            friendsSection.className = 'section-card';
+            friendsSection.innerHTML = `
+                <h4 class="section-title"><i class="fas fa-user-friends"></i>Friends</h4>
+                <button class="btn btn-secondary" id="toggleFriendsBtn"><i class="fas fa-chevron-down me-2"></i>Show Friends</button>
+                <div id="friendsContent" class="mt-3 d-none">
+                    <div class="text-muted">Friends list is hidden. Click the button to toggle.</div>
+                </div>
+            `;
+            container.appendChild(friendsSection);
+
+            const toggleBtn = friendsSection.querySelector('#toggleFriendsBtn');
+            const content = friendsSection.querySelector('#friendsContent');
+            toggleBtn.addEventListener('click', function() {
+                const hidden = content.classList.contains('d-none');
+                if (hidden) {
+                    content.classList.remove('d-none');
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-up me-2"></i>Hide Friends';
+                } else {
+                    content.classList.add('d-none');
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>Show Friends';
+                }
+            });
+        });
     </script>
 </body>
 </html>
