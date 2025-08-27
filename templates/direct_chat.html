@@ -47,18 +47,10 @@
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info">
+                                <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info" style="width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;">
                                     <i class="fas fa-info-circle"></i>
                                 </button>
-                                <div class="dropstart">
-                                    <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="fas fa-ellipsis"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li><button class="dropdown-item text-danger" id="clearChatBtn"><i class="fas fa-trash me-2"></i>Clear chat</button></li>
-                                    </ul>
-                                </div>
-                            </div>
+                             </div>
                         </div>
                     </div>
 
@@ -155,9 +147,9 @@
         document.addEventListener('DOMContentLoaded', ensurePush);
         // Clear chat action
         document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('clearChatBtn');
-            if (btn) {
-                btn.addEventListener('click', async () => {
+            const btnPanelClear = document.getElementById('clearChatBtnPanel');
+            if (btnPanelClear) {
+                btnPanelClear.addEventListener('click', async () => {
                     if (!confirm('Clear this conversation? This will permanently delete ALL messages, images, files, and chat history from the database. This action cannot be undone.')) return;
                     
                     try {
@@ -347,7 +339,8 @@
                 // Display message immediately
                 this.messages.push(tempMessage);
                 this.displayMessages();
-                // No auto-scroll; user controls scrolling
+                // Scroll on send
+                this.scrollToBottom(true);
 
                 // Add to message queue for sending
                 this.messageQueue.push({
@@ -473,7 +466,8 @@
                             }
                             
                             this.displayMessages();
-                            // No auto-scroll on incoming; show button via scroll listener
+                            // Scroll on receive
+                            this.scrollToBottom(true);
                             
                             // Notify for incoming messages from the other user
                             const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
@@ -545,8 +539,7 @@
                     `;
                 }).join('') + typingHTML;
 
-                // Only scroll if user is near bottom
-                this.maybeAutoScroll(false);
+                // Do not auto-scroll here; controlled by send/receive only
             }
 
             async pollTyping() {
