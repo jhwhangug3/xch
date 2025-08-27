@@ -13,3 +13,5 @@ psycopg[binary]==3.2.9
 flask-sock==0.7.0
 gevent==24.2.1
 # pywebpush==2.0.0  # Optional: for push notifications
+requests>=2.31.0
+pywebpush>=1.14.0
