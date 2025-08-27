@@ -1525,3 +1525,19 @@ p {
 .btn:focus, .btn:active { outline: none !important; box-shadow: none !important; }
 .info-btn { border: none !important; }
 .btn-attach { border: none !important; }
+
+/* Compact profile settings (Instagram/Threads style) */
+.pf-settings{max-width:920px;margin:0 auto}
+.settings-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.setting-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px}
+.setting-card .setting-title{display:flex;align-items:center;gap:10px;margin:0 0 8px 0;font-size:0.95rem;color:var(--black)}
+.setting-card .setting-body{display:flex;flex-direction:column;gap:10px}
+.setting-row{display:flex;align-items:center;gap:10px}
+.setting-row .form-control{border:1px solid var(--border);border-radius:10px;padding:10px;background:transparent}
+.setting-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(min-width:768px){
+  .settings-grid{grid-template-columns:1fr 1fr}
+  .setting-card{padding:16px;border-radius:16px}
+}
+/* Subtle separators */
+.setting-sep{height:1px;background:var(--border);margin:8px 0}
