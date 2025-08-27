@@ -1520,3 +1520,8 @@ p {
 .header-actions-right{margin-left:auto; margin-right:0;}
 .chat-header .header-actions-right{position:relative;}
 .info-btn{width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
+
+/* Button outline removal */
+.btn:focus, .btn:active { outline: none !important; box-shadow: none !important; }
+.info-btn { border: none !important; }
+.btn-attach { border: none !important; }
