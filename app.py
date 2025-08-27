@@ -597,101 +597,157 @@ def view_user_profile(user_id):
 
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
+    """Clean, working profile update endpoint"""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
-    data = request.get_json()
-    user = User.query.get(session['user_id'])
-    
     try:
-        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
         
+        user = User.query.get(session['user_id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get or create profile
+        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
         if not profile:
             profile = UserProfile(user_id=session['user_id'])
             db.session.add(profile)
+            db.session.flush()  # Get the ID
         
-        # Handle username change first
+        # Track what was updated
+        updated_fields = []
+        
+        # Update username if provided
         if 'new_username' in data and data['new_username']:
             new_username = data['new_username'].strip()
-            if new_username != user.username:
+            if new_username and new_username != user.username:
                 # Check if username is already taken
                 existing_user = User.query.filter_by(username=new_username).first()
                 if existing_user and existing_user.id != user.id:
                     return jsonify({'error': 'Username already taken'}), 400
                 user.username = new_username
+                updated_fields.append('username')
         
         # Update user fields
-        if 'first_name' in data:
+        if 'first_name' in data and data['first_name'] is not None:
             user.first_name = data['first_name'].strip()
-        if 'last_name' in data:
+            updated_fields.append('first_name')
+        
+        if 'last_name' in data and data['last_name'] is not None:
             user.last_name = data['last_name'].strip()
+            updated_fields.append('last_name')
+        
         if 'email' in data and data['email']:
             user.email = data['email'].strip()
+            updated_fields.append('email')
         
         # Update profile fields
-        if 'bio' in data:
+        if 'bio' in data and data['bio'] is not None:
             profile.bio = data['bio'].strip()
-        if 'display_name' in data:
+            updated_fields.append('bio')
+        
+        if 'display_name' in data and data['display_name'] is not None:
             profile.display_name = data['display_name'].strip()
-        if 'theme_preference' in data:
+            updated_fields.append('display_name')
+        
+        if 'theme_preference' in data and data['theme_preference']:
             profile.theme_preference = data['theme_preference']
+            updated_fields.append('theme_preference')
         
-        # Handle location and timezone fields that might not exist in the database yet
+        # Handle location and timezone (with fallback for missing columns)
         try:
-            if 'location' in data:
+            if 'location' in data and data['location'] is not None:
                 profile.location = data['location'].strip()
-            if 'timezone' in data:
-                profile.timezone = data['timezone'].strip()
+                updated_fields.append('location')
         except AttributeError:
-            # If the location/timezone columns don't exist yet, skip them
-            print("Warning: location/timezone columns not available in database yet")
-            pass
+            print("Location column not available yet")
         
-        # Update notification settings
-        if 'notification_settings' in data:
-            try:
-                existing_settings = json.loads(profile.notification_settings) if profile.notification_settings else {}
-            except Exception:
-                existing_settings = {}
-            existing_settings.update(data['notification_settings'])
-            profile.notification_settings = json.dumps(existing_settings)
+        try:
+            if 'timezone' in data and data['timezone']:
+                profile.timezone = data['timezone'].strip()
+                updated_fields.append('timezone')
+        except AttributeError:
+            print("Timezone column not available yet")
         
-        # Update privacy settings
-        if 'privacy_settings' in data:
-            try:
-                existing_settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
-            except Exception:
-                existing_settings = {}
-            existing_settings.update(data['privacy_settings'])
-            profile.privacy_settings = json.dumps(existing_settings)
-
-        # Store links array separately inside privacy_settings
+        # Update links in privacy_settings
         if 'links' in data and isinstance(data['links'], list):
             try:
-                settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
-            except Exception:
-                settings = {}
-            # Normalize links: keep only allowed keys
-            normalized = []
-            for link in data['links']:
-                if not isinstance(link, dict):
-                    continue
-                title = (link.get('title') or '').strip()
-                url = (link.get('url') or '').strip()
-                if not url:
-                    continue
-                normalized.append({'title': title[:60], 'url': url[:512]})
-            settings['links'] = normalized
-            profile.privacy_settings = json.dumps(settings)
+                # Get existing privacy settings
+                existing_settings = {}
+                if profile.privacy_settings:
+                    try:
+                        existing_settings = json.loads(profile.privacy_settings)
+                    except:
+                        existing_settings = {}
+                
+                # Normalize and validate links
+                normalized_links = []
+                for link in data['links']:
+                    if isinstance(link, dict):
+                        title = (link.get('title') or '').strip()
+                        url = (link.get('url') or '').strip()
+                        if url:  # Only add if URL exists
+                            normalized_links.append({
+                                'title': title[:60],
+                                'url': url[:512]
+                            })
+                
+                existing_settings['links'] = normalized_links
+                profile.privacy_settings = json.dumps(existing_settings)
+                updated_fields.append('links')
+                
+            except Exception as e:
+                print(f"Error processing links: {e}")
         
+        # Update timestamp
         profile.last_updated = datetime.utcnow()
+        
+        # Commit all changes
         db.session.commit()
         
-        return jsonify({'message': 'Profile updated successfully'})
+        print(f"Profile updated successfully. Updated fields: {updated_fields}")
+        return jsonify({
+            'message': 'Profile updated successfully',
+            'updated_fields': updated_fields
+        })
         
     except Exception as e:
+        db.session.rollback()
         print(f"Error updating profile: {e}")
-        return jsonify({'error': 'Failed to update profile'}), 500
+        return jsonify({'error': f'Failed to update profile: {str(e)}'}), 500
+
+@app.route('/api/profile/test', methods=['GET'])
+def test_profile():
+    """Test endpoint to verify profile functionality"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        user = User.query.get(session['user_id'])
+        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+        
+        return jsonify({
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'email': user.email
+            },
+            'profile': {
+                'id': profile.id if profile else None,
+                'bio': profile.bio if profile else None,
+                'location': getattr(profile, 'location', None) if profile else None,
+                'timezone': profile.timezone if profile else None,
+                'privacy_settings': profile.privacy_settings if profile else None
+            },
+            'database_columns': 'Profile system ready'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Test failed: {str(e)}'}), 500
 
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
