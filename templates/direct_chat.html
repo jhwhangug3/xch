@@ -213,6 +213,27 @@
         })();
     </script>
     <script>
+        // Presence polling for chat header
+        document.addEventListener('DOMContentLoaded', function() {
+            const onlineEl = document.querySelector('.online-status');
+            async function pollPresenceChat() {
+                try {
+                    const res = await fetch('/api/presence/{{ other_user.id }}');
+                    const data = await res.json();
+                    if (data && typeof data.online === 'boolean') {
+                        if (data.online) {
+                            onlineEl.innerHTML = '<span class="online-indicator"></span><small>Online</small>';
+                        } else {
+                            onlineEl.innerHTML = '<span class="offline-indicator"></span><small>Offline</small>';
+                        }
+                    }
+                } catch (e) {}
+            }
+            pollPresenceChat();
+            setInterval(pollPresenceChat, 8000);
+        });
+    </script>
+    <script>
         class UltraFastChatApp {
             constructor() {
                 this.messages = [];
