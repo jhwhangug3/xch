@@ -151,6 +151,7 @@ class UserProfile(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     timezone = db.Column(db.String(50), default='UTC')
     language = db.Column(db.String(10), default='en')
+    location = db.Column(db.String(200))  # Added missing location field
     
     def to_dict(self):
         return {
@@ -161,7 +162,8 @@ class UserProfile(db.Model):
             'profile_picture': self.profile_picture,
             'theme_preference': self.theme_preference,
             'timezone': self.timezone,
-            'language': self.language
+            'language': self.language,
+            'location': self.location  # Added location to dict
         }
 
 class FriendRequest(db.Model):
@@ -550,6 +552,16 @@ def update_profile():
         profile = UserProfile(user_id=session['user_id'])
         db.session.add(profile)
     
+    # Handle username change first
+    if 'new_username' in data and data['new_username']:
+        new_username = data['new_username'].strip()
+        if new_username != user.username:
+            # Check if username is already taken
+            existing_user = User.query.filter_by(username=new_username).first()
+            if existing_user and existing_user.id != user.id:
+                return jsonify({'error': 'Username already taken'}), 400
+            user.username = new_username
+    
     # Update user fields
     if 'first_name' in data:
         user.first_name = data['first_name'].strip()
@@ -557,12 +569,18 @@ def update_profile():
         user.last_name = data['last_name'].strip()
     if 'email' in data and data['email']:
         user.email = data['email'].strip()
+    
+    # Update profile fields
     if 'bio' in data:
         profile.bio = data['bio'].strip()
     if 'display_name' in data:
         profile.display_name = data['display_name'].strip()
     if 'theme_preference' in data:
         profile.theme_preference = data['theme_preference']
+    if 'location' in data:
+        profile.location = data['location'].strip()
+    if 'timezone' in data:
+        profile.timezone = data['timezone'].strip()
     
     # Update notification settings
     if 'notification_settings' in data:
