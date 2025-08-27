@@ -123,6 +123,9 @@
                                     <div>
                                         <h6 class="mb-1">Location</h6>
                                         <small class="text-muted" id="userLocation">Loading...</small>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-outline-primary" id="shareLocationBtn" type="button" style="display:none;">Share precise location</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -472,51 +475,77 @@
             }
         }
 
-        function setUserLocationFromTimezone() {
+        // Presence heartbeat + location reporting
+        async function heartbeatPresence() {
+            try { await fetch('/api/presence/ping', { method: 'POST' }); } catch (e) {}
+        }
+
+        function setDerivedLocationFromTZ(tz) {
             try {
-                const tz = MY_TIMEZONE || 'UTC';
-                if (tz.includes('/')) {
-                    const parts = tz.split('/');
-                    const region = parts[0].replace('_', ' ');
-                    const city = parts[parts.length - 1].replace(/_/g, ' ');
+                if (tz && tz.includes('/')) {
+                    const [region, cityRaw] = [tz.split('/')[0], tz.split('/').slice(1).join('/')];
+                    const city = cityRaw.replace(/_/g, ' ');
                     document.getElementById('userLocation').textContent = `${city}, ${region}`;
                 } else {
-                    document.getElementById('userLocation').textContent = tz;
+                    document.getElementById('userLocation').textContent = tz || 'Location unavailable';
                 }
             } catch (e) {
                 document.getElementById('userLocation').textContent = 'Location unavailable';
             }
         }
 
-        // Update time every second and set derived location on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            updateLocalTime();
-            setUserLocationFromTimezone();
-            setInterval(updateLocalTime, 1000);
-        });
-
-        // Presence heartbeat + location reporting
-        async function heartbeatPresence() {
+        async function sendLocation(lat, lon, tz) {
             try {
-                await fetch('/api/presence/ping', { method: 'POST' });
-            } catch (e) {}
-        }
-        async function reportLocation() {
-            try {
-                if (!navigator.geolocation) return;
-                navigator.geolocation.getCurrentPosition(async pos => {
-                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                    await fetch('/api/profile/update-location', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude, timezone: tz })
-                    });
+                await fetch('/api/profile/update-location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat, lon, timezone: tz })
                 });
-            } catch (e) {}
+                const latTxt = Number(lat).toFixed(4);
+                const lonTxt = Number(lon).toFixed(4);
+                document.getElementById('userLocation').textContent = `📍 ${latTxt}, ${lonTxt}`;
+            } catch (e) {
+                // fallback to TZ-derived
+                setDerivedLocationFromTZ(Intl.DateTimeFormat().resolvedOptions().timeZone);
+            }
         }
+
+        function requestLocationInteractive() {
+            const locEl = document.getElementById('userLocation');
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (!navigator.geolocation) {
+                setDerivedLocationFromTZ(tz);
+                return;
+            }
+            locEl.textContent = 'Requesting precise location…';
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    sendLocation(pos.coords.latitude, pos.coords.longitude, tz);
+                },
+                err => {
+                    if (err.code === err.PERMISSION_DENIED) {
+                        locEl.textContent = 'Permission denied. Click “Share precise location”.';
+                        document.getElementById('shareLocationBtn').style.display = '';
+                    } else {
+                        locEl.textContent = 'Unable to get location. Using timezone.';
+                        setDerivedLocationFromTZ(tz);
+                        document.getElementById('shareLocationBtn').style.display = '';
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        async function reportLocation() {
+            // first attempt silently (may prompt depending on browser policy), then show button
+            requestLocationInteractive();
+            setTimeout(() => { document.getElementById('shareLocationBtn').style.display = ''; }, 3000);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             heartbeatPresence();
             setInterval(heartbeatPresence, 10000);
+            document.getElementById('shareLocationBtn').addEventListener('click', requestLocationInteractive);
             reportLocation();
         });
 
