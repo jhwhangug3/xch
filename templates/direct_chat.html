@@ -68,14 +68,14 @@
                     <!-- Chat Input -->
                     <div class="chat-input" id="chatInputBar">
                         <form id="messageForm" class="d-flex gap-2">
-                                                         <div class="position-relative flex-grow-1">
-                                 <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
-                                 <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
-                             </div>
-                                                         <button type="button" class="btn btn-outline-secondary btn-attach" onclick="attachFile()">
-                                 <i class="fas fa-plus"></i>
-                             </button>
-                            <button type="submit" class="btn btn-send">
+                            <button type="button" class="btn btn-outline-secondary btn-attach" onclick="attachFile()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <div class="position-relative flex-grow-1">
+                                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
+                                <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
+                            </div>
+                            <button id="sendBtn" type="button" class="btn btn-send">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </form>
@@ -286,7 +286,7 @@
                     try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
                 });
 
-                this.messageInput.addEventListener('keypress', (e) => {
+                this.messageInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         this.sendMessage();
@@ -298,10 +298,18 @@
 
                 // Prevent the send button from stealing focus (which collapses mobile keyboard)
                 try {
-                    const sendBtn = document.querySelector('.btn-send');
+                    const sendBtn = document.getElementById('sendBtn');
                     if (sendBtn) {
                         sendBtn.addEventListener('mousedown', (ev) => { ev.preventDefault(); });
                         sendBtn.addEventListener('touchstart', (ev) => { ev.preventDefault(); });
+                        const sendHandler = (ev) => {
+                            ev.preventDefault();
+                            this.sendMessage();
+                            try { this.messageInput.focus(); } catch (_) {}
+                            try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
+                        };
+                        sendBtn.addEventListener('click', sendHandler);
+                        sendBtn.addEventListener('touchend', sendHandler);
                     }
                 } catch (_) {}
 
@@ -832,6 +840,7 @@
             
             const chatMessages = document.getElementById('chatMessages');
             const goBtn = document.getElementById('goToBottomBtn');
+            const sendBtn = document.getElementById('sendBtn');
             // Ensure chat info offcanvas opens reliably
             try {
                 const infoBtn = document.getElementById('openChatInfoBtn');
@@ -860,6 +869,13 @@
                 });
                 goBtn.addEventListener('click', () => {
                     try { chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); } catch (e) { chatMessages.scrollTop = chatMessages.scrollHeight; }
+                });
+            }
+            if (sendBtn) {
+                sendBtn.addEventListener('click', () => {
+                    window.ultraFastChatApp.sendMessage();
+                    // Keep focus on input after sending
+                    try { document.getElementById('messageInput').focus(); } catch (_) {}
                 });
             }
             
