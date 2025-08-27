@@ -54,8 +54,44 @@
             </div>
             <div class="mb-3">
                 <h6 class="text-muted mb-1">Bio</h6>
-                <p class="mb-0">{{ (profile.bio if profile and profile.bio else 'No bio yet.') }}</p>
+                <p class="mb-0">{{ (profile.bio | linkify_bio) if profile and profile.bio else 'No bio yet.' }}</p>
             </div>
+            {% set links = (profile.privacy_settings | default('{}')) %}
+            {% set links_json = links and links %}
+            {% set links_data = [] %}
+            {% if profile and profile.privacy_settings %}
+                {% set _ps = profile.privacy_settings | tojson %}
+            {% endif %}
+            {% set _parsed = None %}
+            {% if profile and profile.privacy_settings %}
+                {% set _parsed = profile.privacy_settings | safe %}
+            {% endif %}
+            {% if profile and profile.privacy_settings %}
+                {% set ps = profile.privacy_settings %}
+                {% set _ = [] %}
+            {% endif %}
+            {% set ps = profile.privacy_settings and profile.privacy_settings %}
+            {% if ps %}
+                {% set obj = ps | tojson %}
+            {% endif %}
+            <!-- Simple links list -->
+            {% set links_list = [] %}
+            {% if profile and profile.privacy_settings %}
+                {% set _obj = profile.privacy_settings | safe %}
+            {% endif %}
+            {% if profile and profile.privacy_settings %}
+                {% set _links = (profile.privacy_settings | loadjson).get('links') if (profile.privacy_settings | loadjson) else [] %}
+                {% if _links %}
+                <div class="mb-3">
+                    <h6 class="text-muted mb-1">Links</h6>
+                    <ul class="mb-0">
+                        {% for l in _links %}
+                        <li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.title or l.url }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            {% endif %}
             <div class="mb-3">
                 <h6 class="text-muted mb-1">Contact</h6>
                 <p class="mb-0">{{ user.email or '—' }}</p>
@@ -96,40 +132,53 @@
     </div>
 
     <script>
-        // Local time and location functionality for friend's profile
-        function updateLocalTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-            });
-            const offset = -now.getTimezoneOffset() / 60;
-            const offsetString = offset >= 0 ? `+${offset}` : `${offset}`;
-            document.getElementById('localTime').textContent = `${timeString} (GMT${offsetString})`;
-        }
-
-        async function getUserLocation() {
+        // Presence and precise location/time for viewed user
+        const VIEWED_USER_ID = {{ user.id }};
+        async function pollPresence() {
             try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                if (data.country_name && data.city) {
-                    document.getElementById('userLocation').textContent = `${data.city}, ${data.country_name}`;
-                } else if (data.country_name) {
-                    document.getElementById('userLocation').textContent = data.country_name;
+                const res = await fetch(`/api/presence/${VIEWED_USER_ID}`);
+                const d = await res.json();
+                const badge = document.querySelector('.badge');
+                if (d.online) {
+                    if (badge) { badge.classList.remove('bg-secondary'); badge.classList.add('bg-success'); badge.textContent = 'Online'; }
                 } else {
-                    document.getElementById('userLocation').textContent = 'Location unavailable';
+                    if (badge) { badge.classList.remove('bg-success'); badge.classList.add('bg-secondary'); badge.textContent = 'Offline'; }
                 }
-            } catch (error) {
-                document.getElementById('userLocation').textContent = 'Location unavailable';
-            }
+            } catch (e) {}
         }
-
+        async function loadPreciseLocation() {
+            try {
+                const res = await fetch(`/api/profile/location/${VIEWED_USER_ID}`);
+                const data = await res.json();
+                if (data.timezone) {
+                    // Update local time using friend's timezone
+                    const tz = data.timezone;
+                    function updateLocalTimeTz() {
+                        try {
+                            const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: tz });
+                            const timeString = fmt.format(new Date());
+                            const now = new Date();
+                            const tzDateStr = now.toLocaleString('en-US', { timeZone: tz });
+                            const tzDate = new Date(tzDateStr);
+                            const offsetHours = Math.round((tzDate.getTime() - now.getTime()) / 3600000);
+                            const offsetString = offsetHours >= 0 ? `+${offsetHours}` : `${offsetHours}`;
+                            document.getElementById('localTime').textContent = `${timeString} (GMT${offsetString})`;
+                        } catch (e) {}
+                    }
+                    updateLocalTimeTz();
+                    setInterval(updateLocalTimeTz, 1000);
+                }
+                if (data.lat != null && data.lon != null) {
+                    const lat = Number(data.lat).toFixed(4);
+                    const lon = Number(data.lon).toFixed(4);
+                    document.getElementById('userLocation').textContent = `📍 ${lat}, ${lon}`;
+                }
+            } catch (e) {}
+        }
         document.addEventListener('DOMContentLoaded', function() {
-            updateLocalTime();
-            getUserLocation();
-            setInterval(updateLocalTime, 1000);
+            pollPresence();
+            setInterval(pollPresence, 8000);
+            loadPreciseLocation();
         });
     </script>
 
