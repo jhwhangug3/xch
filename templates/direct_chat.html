@@ -17,7 +17,7 @@
                 <div class="chat-container">
                     <!-- Chat Header -->
                     <div class="chat-header" id="chatHeaderBar">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center w-100">
                             <div class="d-flex align-items-center gap-3">
                                 <a href="{{ url_for('dashboard') }}" class="back-button p-1" title="Back">
                                     <i class="fas fa-arrow-left fa-sm"></i>
@@ -46,50 +46,14 @@
                                     </a>
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info" style="width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;">
+                            <div class="header-actions-right d-flex align-items-center gap-2">
+                                <button id="openChatInfoBtn" class="btn btn-outline-light btn-sm info-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info" onclick="(function(){var s=document.getElementById('chatInfoSheet');var b=document.getElementById('chatInfoBackdrop'); if(s&&b){s.classList.add('show'); b.classList.add('show');}})(); return false;">
                                     <i class="fas fa-info-circle"></i>
                                 </button>
                              </div>
                         </div>
                     </div>
-                    <!-- Chat Info Offcanvas Panel -->
-                    <div class="offcanvas offcanvas-end" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel">
-                        <div class="offcanvas-header">
-                            <h5 class="offcanvas-title" id="chatInfoLabel">Chat Info</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                        </div>
-                        <div class="offcanvas-body">
-                            <div class="mb-4">
-                                <h6 class="mb-2">Controls</h6>
-                                <div class="d-flex flex-column gap-2">
-                                    <button class="btn btn-secondary btn-sm" id="muteChatBtn"><i class="fas fa-bell-slash me-2"></i>Mute</button>
-                                    <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn"><i class="fas fa-thumbtack me-2"></i>Pin</button>
-                                    <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel"><i class="fas fa-trash me-2"></i>Clear chat</button>
-                                    <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
-                                </div>
-                            </div>
-                            <div class="mb-4">
-                                <h6 class="mb-2">Media</h6>
-                                <div>
-                                    <div class="small text-muted mb-1">Pictures</div>
-                                    <div id="chatPictures" class="d-flex flex-wrap gap-2"></div>
-                                </div>
-                                <div class="mt-3">
-                                    <div class="small text-muted mb-1">Files</div>
-                                    <div id="chatFiles" class="d-flex flex-column gap-1"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <h6 class="mb-2">Tools</h6>
-                                <div class="d-flex flex-column gap-2">
-                                    <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
-                                    <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+                    
                     <!-- Chat Messages -->
                     <div class="chat-messages" id="chatMessages">
                         <div class="text-center text-muted mt-4">
@@ -116,6 +80,43 @@
                             </button>
                         </form>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Chat Info Offcanvas Panel (outside chat container to avoid clipping) -->
+    <div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel" style="z-index: 1055;">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="chatInfoLabel">Chat Info</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="mb-4">
+                <h6 class="mb-2">Controls</h6>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-secondary btn-sm" id="muteChatBtn"><i class="fas fa-bell-slash me-2"></i>Mute</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn"><i class="fas fa-thumbtack me-2"></i>Pin</button>
+                    <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel"><i class="fas fa-trash me-2"></i>Clear chat</button>
+                    <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
+                </div>
+            </div>
+            <div class="mb-4">
+                <h6 class="mb-2">Media</h6>
+                <div>
+                    <div class="small text-muted mb-1">Pictures</div>
+                    <div id="chatPictures" class="d-flex flex-wrap gap-2"></div>
+                </div>
+                <div class="mt-3">
+                    <div class="small text-muted mb-1">Files</div>
+                    <div id="chatFiles" class="d-flex flex-column gap-1"></div>
+                </div>
+            </div>
+            <div>
+                <h6 class="mb-2">Tools</h6>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
+                    <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
                 </div>
             </div>
         </div>
@@ -280,14 +281,29 @@
                 this.messageForm.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.sendMessage();
+                    // Restore focus so mobile keyboard stays open
+                    try { this.messageInput.focus(); } catch (_) {}
+                    try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
                 });
 
                 this.messageInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         this.sendMessage();
+                        // Keep focus on enter submit as well
+                        try { this.messageInput.focus(); } catch (_) {}
+                        try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
                     }
                 });
+
+                // Prevent the send button from stealing focus (which collapses mobile keyboard)
+                try {
+                    const sendBtn = document.querySelector('.btn-send');
+                    if (sendBtn) {
+                        sendBtn.addEventListener('mousedown', (ev) => { ev.preventDefault(); });
+                        sendBtn.addEventListener('touchstart', (ev) => { ev.preventDefault(); });
+                    }
+                } catch (_) {}
 
                 this.messageInput.addEventListener('input', async () => {
                     // Send typing signal for the CURRENT user
@@ -377,6 +393,9 @@
                 this.displayMessages();
                 // Scroll on send
                 this.scrollToBottom(true);
+                // Re-focus input to keep mobile keyboard open
+                try { this.messageInput.focus(); } catch (_) {}
+                try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
 
                 // Add to message queue for sending
                 this.messageQueue.push({
@@ -813,6 +832,19 @@
             
             const chatMessages = document.getElementById('chatMessages');
             const goBtn = document.getElementById('goToBottomBtn');
+            // Ensure chat info offcanvas opens reliably
+            try {
+                const infoBtn = document.getElementById('openChatInfoBtn');
+                const panelEl = document.getElementById('chatInfoPanel');
+                if (infoBtn && panelEl && window.bootstrap && window.bootstrap.Offcanvas) {
+                    infoBtn.addEventListener('click', function(e){
+                        try {
+                            const oc = bootstrap.Offcanvas.getOrCreateInstance(panelEl);
+                            oc.show();
+                        } catch (_) {}
+                    });
+                }
+            } catch (_) {}
             function isNearBottom(el, thresholdPx = 40) {
                 if (!el) return true;
                 const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -839,21 +871,88 @@
         });
     </script>
 </body>
+<style>
+/***** Chat Info Sheet Fallback *****/
+.chat-info-sheet{position:fixed;top:0;right:0;bottom:0;width:min(92vw,380px);background:var(--white);color:var(--black);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .2s ease;z-index:1055;display:flex;flex-direction:column}
+.chat-info-sheet.show{transform:translateX(0)}
+.chat-info-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);z-index:1050;display:none}
+.chat-info-backdrop.show{display:block}
+.chat-info-sheet .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.chat-info-sheet .sheet-body{padding:16px;overflow:auto}
+</style>
+<div id="chatInfoBackdrop" class="chat-info-backdrop" role="presentation" aria-hidden="true"></div>
+<div id="chatInfoSheet" class="chat-info-sheet" role="dialog" aria-modal="true" aria-labelledby="chatInfoLabelFallback">
+  <div class="sheet-header">
+    <h5 id="chatInfoLabelFallback" class="mb-0">Chat Info</h5>
+    <button type="button" class="btn btn-sm btn-outline-light" id="closeChatInfoSheet" aria-label="Close">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="mb-4">
+      <h6 class="mb-2">Controls</h6>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn btn-secondary btn-sm" id="muteChatBtn_f"><i class="fas fa-bell-slash me-2"></i>Mute</button>
+        <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn_f"><i class="fas fa-thumbtack me-2"></i>Pin</button>
+        <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel_f"><i class="fas fa-trash me-2"></i>Clear chat</button>
+        <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn_f"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
+      </div>
+    </div>
+    <div class="mb-4">
+      <h6 class="mb-2">Media</h6>
+      <div>
+        <div class="small text-muted mb-1">Pictures</div>
+        <div id="chatPictures_f" class="d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="mt-3">
+        <div class="small text-muted mb-1">Files</div>
+        <div id="chatFiles_f" class="d-flex flex-column gap-1"></div>
+      </div>
+    </div>
+    <div>
+      <h6 class="mb-2">Tools</h6>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn_f"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
+        <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn_f"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-    (function(){
-        document.addEventListener('DOMContentLoaded', function(){
-            const btn = document.getElementById('navAvatarBtn');
-            const menu = document.getElementById('navMenu');
-            if (!btn || !menu) return;
-            btn.addEventListener('click', function(){
-                menu.classList.toggle('show');
-            });
-            document.addEventListener('click', function(e){
-                if (!menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.classList.remove('show');
-                }
-            });
-        });
-    })();
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    const infoBtn = document.getElementById('openChatInfoBtn');
+    const ocEl = document.getElementById('chatInfoPanel');
+    const sheet = document.getElementById('chatInfoSheet');
+    const backdrop = document.getElementById('chatInfoBackdrop');
+    const closeBtn = document.getElementById('closeChatInfoSheet');
+
+    function openSheet(){ sheet.classList.add('show'); backdrop.classList.add('show'); }
+    function closeSheet(){ sheet.classList.remove('show'); backdrop.classList.remove('show'); }
+
+    if (infoBtn) {
+      infoBtn.addEventListener('click', function(e){
+        try {
+          if (window.bootstrap && window.bootstrap.Offcanvas && ocEl) {
+            const oc = bootstrap.Offcanvas.getOrCreateInstance(ocEl);
+            oc.show();
+          } else {
+            openSheet();
+          }
+        } catch { openSheet(); }
+      });
+    }
+    if (backdrop) backdrop.addEventListener('click', closeSheet);
+    if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape') closeSheet(); });
+
+    // Wire Clear Chat in fallback panel to existing handler
+    const clearFallback = document.getElementById('clearChatBtnPanel_f');
+    if (clearFallback) {
+      clearFallback.addEventListener('click', function(){
+        const btnPanelClear = document.getElementById('clearChatBtnPanel');
+        if (btnPanelClear) btnPanelClear.click();
+      });
+    }
+  });
+})();
 </script>
 </html>
