@@ -299,6 +299,22 @@ def inject_user_context():
         pass
     # Provide a safe dummy so templates that access user.* don't 500
     return { 'user': types.SimpleNamespace(username='', first_name='', last_name='', profile_picture=None, is_online=False) }
+
+def get_profile_url(user):
+    """Helper function to generate consistent profile URLs"""
+    if hasattr(user, 'username') and user.username:
+        return url_for('view_user_profile_by_username', username=user.username)
+    elif hasattr(user, 'id') and user.id:
+        return url_for('view_user_profile', user_id=user.id)
+    return '#'
+
+@app.context_processor
+def inject_helpers():
+    """Inject helper functions into templates"""
+    return {
+        'get_profile_url': get_profile_url
+    }
+
 @app.route('/')
 def index():
     if 'user_id' not in session:
@@ -442,6 +458,38 @@ def profile():
         db.session.commit()
     
     return render_template('profile.html', user=user, profile=profile)
+
+@app.route('/@<username>')
+def view_user_profile_by_username(username):
+    """New username-based profile route - site/@username"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.is_active:
+        flash('User not found.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profile = UserProfile.query.filter_by(user_id=user.id).first()
+    friends = get_user_friends(user.id)
+    me = User.query.get(session['user_id'])
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
+
+@app.route('/user/<username>')
+def view_user_profile_by_username_alt(username):
+    """Alternative username-based profile route - site/user/username"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.is_active:
+        flash('User not found.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    profile = UserProfile.query.filter_by(user_id=user.id).first()
+    friends = get_user_friends(user.id)
+    me = User.query.get(session['user_id'])
+    return render_template('user_profile.html', me=me, user=user, profile=profile, friends=friends)
 
 @app.route('/users/<int:user_id>')
 def view_user_profile(user_id):
