@@ -65,6 +65,8 @@
                 this.messageForm = document.getElementById('messageForm');
                 this.messageInput = document.getElementById('messageInput');
                 this.chatMessages = document.getElementById('chatMessages');
+                this.isUserAtBottom = true;
+                this.lastMessageCount = 0;
                 
                 this.init();
             }
@@ -72,7 +74,7 @@
             init() {
                 this.loadMessages();
                 this.setupEventListeners();
-                this.startAutoRefresh();
+                this.setupScrollDetection();
             }
 
             setupEventListeners() {
@@ -89,13 +91,34 @@
                 });
             }
 
+            setupScrollDetection() {
+                // Detect when user scrolls to determine if they're at bottom
+                this.chatMessages.addEventListener('scroll', () => {
+                    const { scrollTop, scrollHeight, clientHeight } = this.chatMessages;
+                    // User is at bottom if they're within 50px of the bottom
+                    this.isUserAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+                });
+            }
+
             async loadMessages() {
                 try {
                     const response = await fetch('/api/messages');
                     if (response.ok) {
                         const messages = await response.json();
-                        this.messages = messages;
-                        this.displayMessages();
+                        
+                        // Only update if there are new messages
+                        if (messages.length !== this.lastMessageCount) {
+                            const wasAtBottom = this.isUserAtBottom;
+                            this.messages = messages;
+                            this.displayMessages();
+                            
+                            // Only auto-scroll if user was at bottom or if it's the first load
+                            if (wasAtBottom || this.lastMessageCount === 0) {
+                                this.scrollToBottom();
+                            }
+                            
+                            this.lastMessageCount = messages.length;
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
@@ -120,7 +143,11 @@
                         this.messages.push(message);
                         this.displayMessages();
                         this.messageInput.value = '';
+                        
+                        // Always scroll to bottom when user sends a message
                         this.scrollToBottom();
+                        this.isUserAtBottom = true;
+                        this.lastMessageCount = this.messages.length;
                     }
                 } catch (error) {
                     console.error('Error sending message:', error);
@@ -141,13 +168,13 @@
                 this.chatMessages.innerHTML = this.messages.map(message => {
                     const isOwn = message.username === this.currentUser;
                     const messageClass = isOwn ? 'message own' : 'message';
-                                    // Convert UTC timestamp to local time
-                const utcDate = new Date(message.timestamp + 'Z'); // Add Z to treat as UTC
-                const time = utcDate.toLocaleTimeString([], {
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: true
-                });
+                    // Convert UTC timestamp to local time
+                    const utcDate = new Date(message.timestamp + 'Z'); // Add Z to treat as UTC
+                    const time = utcDate.toLocaleTimeString([], {
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true
+                    });
 
                     return `
                         <div class="${messageClass}">
@@ -160,8 +187,6 @@
                         </div>
                     `;
                 }).join('');
-
-                this.scrollToBottom();
             }
 
             escapeHtml(text) {
@@ -181,19 +206,37 @@
             }
 
             scrollToBottom() {
-                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                // Smooth scroll to bottom
+                this.chatMessages.scrollTo({
+                    top: this.chatMessages.scrollHeight,
+                    behavior: 'smooth'
+                });
             }
 
-            startAutoRefresh() {
-                setInterval(() => {
+            // Start polling for new messages only when page is visible
+            startMessagePolling() {
+                // Only poll when page is visible to save resources
+                if (document.visibilityState === 'visible') {
                     this.loadMessages();
-                }, 3000); // Refresh every 3 seconds
+                }
             }
         }
 
         // Initialize chat app when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new ChatApp();
+            const chatApp = new ChatApp();
+            
+            // Poll for new messages every 5 seconds only when page is visible
+            setInterval(() => {
+                chatApp.startMessagePolling();
+            }, 5000);
+            
+            // Also poll when page becomes visible
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    chatApp.loadMessages();
+                }
+            });
         });
     </script>
 </body>
