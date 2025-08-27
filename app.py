@@ -66,6 +66,34 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
+# Auto-migration function to add missing columns
+def run_auto_migration():
+    """Automatically add missing columns to the database"""
+    try:
+        with app.app_context():
+            # Check if location column exists
+            result = db.session.execute(db.text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user_profiles' 
+                AND column_name = 'location'
+            """))
+            
+            if not result.fetchone():
+                print("🔄 Auto-migrating: Adding location column to user_profiles table...")
+                db.session.execute(db.text("""
+                    ALTER TABLE user_profiles 
+                    ADD COLUMN location VARCHAR(200)
+                """))
+                db.session.commit()
+                print("✅ Successfully added location column to user_profiles table")
+            else:
+                print("✅ Location column already exists in user_profiles table")
+                
+    except Exception as e:
+        print(f"⚠️ Auto-migration warning: {e}")
+        print("This is normal if the column already exists or if there are permission issues")
+
 # Global encryption key for message encryption
 ENCRYPTION_KEY = Fernet.generate_key()
 cipher_suite = Fernet(ENCRYPTION_KEY)
@@ -1712,4 +1740,14 @@ def linkify_bio(text):
 if __name__ == '__main__':
     host = os.environ.get('HOST', '127.0.0.1')
     port = int(os.environ.get('PORT', 5050))
+    
+    # Create tables if they don't exist and run auto-migration
+    with app.app_context():
+        db.create_all()
+        print("Database initialized successfully with all tables!")
+        print("Users, profiles, friendships, and messages tables ready!")
+        
+        # Run auto-migration to add missing columns
+        run_auto_migration()
+    
     app.run(debug=False, threaded=True, host=host, port=port)
