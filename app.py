@@ -83,7 +83,7 @@ def run_auto_migration():
                 print("🔄 Auto-migrating: Adding location column to user_profiles table...")
                 db.session.execute(db.text("""
                     ALTER TABLE user_profiles 
-                    ADD COLUMN location VARCHAR(200)
+                    ADD COLUMN location VARCHAR(200) DEFAULT NULL
                 """))
                 db.session.commit()
                 print("✅ Successfully added location column to user_profiles table")
@@ -93,6 +93,18 @@ def run_auto_migration():
     except Exception as e:
         print(f"⚠️ Auto-migration warning: {e}")
         print("This is normal if the column already exists or if there are permission issues")
+        
+    # Force SQLAlchemy to refresh table metadata after migration
+    try:
+        with app.app_context():
+            db.engine.execute(db.text("SELECT 1"))  # Test connection
+            print("🔄 Refreshing SQLAlchemy table metadata...")
+            # Clear any cached table definitions
+            db.Model.metadata.clear()
+            db.Model.metadata.reflect(bind=db.engine)
+            print("✅ Table metadata refreshed successfully")
+    except Exception as e:
+        print(f"⚠️ Metadata refresh warning: {e}")
 
 # Global encryption key for message encryption
 ENCRYPTION_KEY = Fernet.generate_key()
@@ -179,7 +191,8 @@ class UserProfile(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     timezone = db.Column(db.String(50), default='UTC')
     language = db.Column(db.String(10), default='en')
-    location = db.Column(db.String(200))  # Added missing location field
+    # Make location optional - it will be added by migration
+    location = db.Column(db.String(200), nullable=True, default=None)
     
     def to_dict(self):
         return {
@@ -191,7 +204,7 @@ class UserProfile(db.Model):
             'theme_preference': self.theme_preference,
             'timezone': self.timezone,
             'language': self.language,
-            'location': self.location  # Added location to dict
+            'location': getattr(self, 'location', None)  # Safely get location
         }
 
 class FriendRequest(db.Model):
@@ -589,90 +602,96 @@ def update_profile():
     
     data = request.get_json()
     user = User.query.get(session['user_id'])
-    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
     
-    if not profile:
-        profile = UserProfile(user_id=session['user_id'])
-        db.session.add(profile)
-    
-    # Handle username change first
-    if 'new_username' in data and data['new_username']:
-        new_username = data['new_username'].strip()
-        if new_username != user.username:
-            # Check if username is already taken
-            existing_user = User.query.filter_by(username=new_username).first()
-            if existing_user and existing_user.id != user.id:
-                return jsonify({'error': 'Username already taken'}), 400
-            user.username = new_username
-    
-    # Update user fields
-    if 'first_name' in data:
-        user.first_name = data['first_name'].strip()
-    if 'last_name' in data:
-        user.last_name = data['last_name'].strip()
-    if 'email' in data and data['email']:
-        user.email = data['email'].strip()
-    
-    # Update profile fields
-    if 'bio' in data:
-        profile.bio = data['bio'].strip()
-    if 'display_name' in data:
-        profile.display_name = data['display_name'].strip()
-    if 'theme_preference' in data:
-        profile.theme_preference = data['theme_preference']
-    
-    # Handle location and timezone fields that might not exist in the database yet
     try:
-        if 'location' in data:
-            profile.location = data['location'].strip()
-        if 'timezone' in data:
-            profile.timezone = data['timezone'].strip()
-    except AttributeError:
-        # If the location/timezone columns don't exist yet, skip them
-        print("Warning: location/timezone columns not available in database yet")
-        pass
-    
-    # Update notification settings
-    if 'notification_settings' in data:
+        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+        
+        if not profile:
+            profile = UserProfile(user_id=session['user_id'])
+            db.session.add(profile)
+        
+        # Handle username change first
+        if 'new_username' in data and data['new_username']:
+            new_username = data['new_username'].strip()
+            if new_username != user.username:
+                # Check if username is already taken
+                existing_user = User.query.filter_by(username=new_username).first()
+                if existing_user and existing_user.id != user.id:
+                    return jsonify({'error': 'Username already taken'}), 400
+                user.username = new_username
+        
+        # Update user fields
+        if 'first_name' in data:
+            user.first_name = data['first_name'].strip()
+        if 'last_name' in data:
+            user.last_name = data['last_name'].strip()
+        if 'email' in data and data['email']:
+            user.email = data['email'].strip()
+        
+        # Update profile fields
+        if 'bio' in data:
+            profile.bio = data['bio'].strip()
+        if 'display_name' in data:
+            profile.display_name = data['display_name'].strip()
+        if 'theme_preference' in data:
+            profile.theme_preference = data['theme_preference']
+        
+        # Handle location and timezone fields that might not exist in the database yet
         try:
-            existing_settings = json.loads(profile.notification_settings) if profile.notification_settings else {}
-        except Exception:
-            existing_settings = {}
-        existing_settings.update(data['notification_settings'])
-        profile.notification_settings = json.dumps(existing_settings)
-    
-    # Update privacy settings
-    if 'privacy_settings' in data:
-        try:
-            existing_settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
-        except Exception:
-            existing_settings = {}
-        existing_settings.update(data['privacy_settings'])
-        profile.privacy_settings = json.dumps(existing_settings)
+            if 'location' in data:
+                profile.location = data['location'].strip()
+            if 'timezone' in data:
+                profile.timezone = data['timezone'].strip()
+        except AttributeError:
+            # If the location/timezone columns don't exist yet, skip them
+            print("Warning: location/timezone columns not available in database yet")
+            pass
+        
+        # Update notification settings
+        if 'notification_settings' in data:
+            try:
+                existing_settings = json.loads(profile.notification_settings) if profile.notification_settings else {}
+            except Exception:
+                existing_settings = {}
+            existing_settings.update(data['notification_settings'])
+            profile.notification_settings = json.dumps(existing_settings)
+        
+        # Update privacy settings
+        if 'privacy_settings' in data:
+            try:
+                existing_settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+            except Exception:
+                existing_settings = {}
+            existing_settings.update(data['privacy_settings'])
+            profile.privacy_settings = json.dumps(existing_settings)
 
-    # Store links array separately inside privacy_settings
-    if 'links' in data and isinstance(data['links'], list):
-        try:
-            settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
-        except Exception:
-            settings = {}
-        # Normalize links: keep only allowed keys
-        normalized = []
-        for link in data['links']:
-            if not isinstance(link, dict):
-                continue
-            title = (link.get('title') or '').strip()
-            url = (link.get('url') or '').strip()
-            if not url:
-                continue
-            normalized.append({'title': title[:60], 'url': url[:512]})
-        settings['links'] = normalized
-        profile.privacy_settings = json.dumps(settings)
-    
-    profile.last_updated = datetime.utcnow()
-    db.session.commit()
-    
-    return jsonify({'message': 'Profile updated successfully'})
+        # Store links array separately inside privacy_settings
+        if 'links' in data and isinstance(data['links'], list):
+            try:
+                settings = json.loads(profile.privacy_settings) if profile.privacy_settings else {}
+            except Exception:
+                settings = {}
+            # Normalize links: keep only allowed keys
+            normalized = []
+            for link in data['links']:
+                if not isinstance(link, dict):
+                    continue
+                title = (link.get('title') or '').strip()
+                url = (link.get('url') or '').strip()
+                if not url:
+                    continue
+                normalized.append({'title': title[:60], 'url': url[:512]})
+            settings['links'] = normalized
+            profile.privacy_settings = json.dumps(settings)
+        
+        profile.last_updated = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({'message': 'Profile updated successfully'})
+        
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        return jsonify({'error': 'Failed to update profile'}), 500
 
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
