@@ -1471,3 +1471,29 @@ p {
         padding: var(--space-3);
     }
 }
+
+/* Minimalist profile layout */
+.pf-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:16px;backdrop-filter:saturate(180%) blur(8px);background:rgba(255,255,255,0.8);border-bottom:1px solid rgba(0,0,0,0.05)}
+.pf-back{color:inherit;text-decoration:none;font-size:18px}
+.pf-avatar{width:64px;height:64px;border-radius:50%;overflow:hidden;background:#eee;display:flex;align-items:center;justify-content:center}
+.pf-avatar img{width:100%;height:100%;object-fit:cover}
+.pf-meta{flex:1}
+.pf-name{font-size:20px;line-height:1.2;margin:0}
+.pf-username{color:#6c757d;font-size:14px}
+.pf-presence{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;margin-top:6px;background:#e9ecef}
+.pf-presence.online{background:#d1f7e0;color:#0a7a33}
+.pf-presence.offline{background:#f0f0f0;color:#6c757d}
+.pf-actions{margin-left:auto}
+.pf-main{padding:16px}
+.pf-section{margin:16px 0}
+.pf-label{font-size:12px;color:#6c757d;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
+.pf-text{font-size:15px;white-space:pre-wrap}
+.pf-links{display:flex;flex-wrap:wrap;gap:8px}
+.pf-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f5f5f5;text-decoration:none;color:inherit;font-size:13px}
+.pf-chip:hover{background:#ececec}
+.pf-local{display:grid;grid-template-columns:1fr;gap:6px;color:#333}
+.pf-friends{display:flex;flex-wrap:wrap;gap:10px}
+.pf-friend{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;padding:6px 8px;border-radius:8px;background:#f9f9f9}
+.pf-friend img{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.pf-friend:hover{background:#f1f1f1}
+@media(min-width:768px){.pf-main{padding:24px 32px}}
