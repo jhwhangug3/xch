@@ -59,8 +59,8 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'SF Pro Display', Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-    color: var(--black);
-    background: var(--white);
+    color: var(--white);
+    background: var(--black);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -307,7 +307,7 @@ p {
 .navbar-meow .panel .link { padding: var(--space-2) var(--space-3); text-decoration: none; color: var(--black); border-radius: var(--radius-md); }
 .navbar-meow .panel .link:hover { background: var(--gray-50); }
 .chat-container {
-    background: var(--white);
+    background: var(--black);
     border-radius: 0;
     border: none;
     height: 100vh;
@@ -334,10 +334,10 @@ p {
 
 /* Chat Header - Modern & Clean */
 .chat-header {
-    background: var(--white);
-    color: var(--black);
+    background: var(--black);
+    color: var(--white);
     padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4) var(--space-5);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--gray-800);
     border-radius: 0;
     display: flex;
     align-items: center;
@@ -347,7 +347,7 @@ p {
     z-index: 1001;
     /* Ensure header doesn't interfere with scrolling */
     backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.98);
 }
 
 .chat-header .user-info {
@@ -411,8 +411,8 @@ p {
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--space-5);
-    padding-bottom: 120px; /* Increased padding to ensure messages are above input bar */
-    background: var(--gray-50);
+    padding-bottom: 140px; /* Increased padding to ensure messages are above input bar */
+    background: var(--gray-900);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     position: relative;
@@ -425,7 +425,7 @@ p {
     /* Ensure messages are always visible above input */
     box-sizing: border-box;
     /* Handle mobile keyboard and ensure proper spacing */
-    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
     /* Ensure messages are always visible above input bar */
     margin-bottom: 0;
     /* Ensure messages area adapts to mobile keyboard */
@@ -451,13 +451,32 @@ p {
     margin-bottom: var(--space-6);
 }
 
+/* Additional spacing to prevent messages from going under input */
+.message:last-child::after {
+    content: '';
+    display: block;
+    height: 120px;
+    min-height: 120px;
+}
+
+/* Force bottom spacing for all messages */
+.chat-messages > *:last-child {
+    margin-bottom: 120px !important;
+}
+
 /* Guaranteed bottom spacing - prevents messages from being hidden */
 .chat-messages::after {
     content: '';
     display: block;
-    height: 60px;
-    min-height: 60px;
+    height: 140px;
+    min-height: 140px;
     width: 100%;
+    /* Ensure this spacing is always visible */
+    position: relative;
+    z-index: 1;
+    /* Force this spacing to be visible */
+    background: transparent;
+    pointer-events: none;
 }
 
 .message.own {
@@ -465,30 +484,31 @@ p {
 }
 
 .message-content {
-    background: var(--white);
+    background: var(--gray-800);
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-xl);
     max-width: 70%;
     word-wrap: break-word;
     position: relative;
-    border: 1px solid var(--gray-100);
+    border: 1px solid var(--gray-700);
     box-shadow: var(--shadow-xs);
     line-height: 1.4;
     /* Auto-size to content */
     width: fit-content;
     min-width: 60px;
+    color: var(--white);
 }
 
 .message.own .message-content {
-    background: var(--black);
-    color: var(--white);
-    border-color: var(--black);
+    background: var(--white);
+    color: var(--black);
+    border-color: var(--white);
 }
 
 /* Message Info - Better Typography */
 .message-info {
     font-size: 0.75rem;
-    color: var(--gray-500);
+    color: var(--gray-400);
     margin-bottom: var(--space-2);
     display: flex;
     align-items: center;
@@ -497,7 +517,7 @@ p {
 }
 
 .message.own .message-info {
-    color: var(--gray-400);
+    color: var(--gray-600);
     justify-content: flex-end;
 }
 
@@ -514,22 +534,23 @@ p {
 /* Typing indicators */
 .typing-indicator {
     padding: var(--space-3) var(--space-4);
-    background: var(--white);
+    background: var(--gray-800);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--gray-100);
+    border: 1px solid var(--gray-700);
     margin-bottom: var(--space-4);
     display: inline-block;
     max-width: 70%;
     /* Ensure typing indicator doesn't get hidden */
     margin-bottom: var(--space-6);
+    color: var(--white);
 }
 
 .message-status.read {
-    color: var(--gray-400);
+    color: var(--gray-500);
 }
 
 .message-status.unread {
-    color: var(--gray-500);
+    color: var(--gray-400);
 }
 
 .message-status i {
@@ -540,8 +561,8 @@ p {
 .chat-input {
     padding: var(--space-4) var(--space-5);
     padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
-    background: var(--white);
-    border-top: 1px solid var(--border);
+    background: var(--black);
+    border-top: 1px solid var(--gray-800);
     border-radius: 0;
     position: fixed;
     left: 0;
@@ -549,18 +570,19 @@ p {
     bottom: 0;
     z-index: 1002;
     backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.98);
     /* Ensure input is above messages but below other UI elements */
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
     /* Handle mobile keyboard properly */
     transform: translateZ(0);
     /* Ensure input stays visible above mobile keyboard */
-    position: fixed;
     bottom: env(safe-area-inset-bottom);
     /* Ensure input is always above messages */
     z-index: 1002;
     /* Handle mobile keyboard viewport changes */
     transition: bottom 0.3s ease;
+    /* Ensure input has solid background */
+    border-bottom: 1px solid var(--gray-800);
 }
 
 .chat-input form {
@@ -569,30 +591,34 @@ p {
     align-items: flex-end;
     /* Ensure consistent height and prevent layout shifts */
     min-height: 2.5rem;
+    /* Ensure form has proper height calculation */
+    box-sizing: border-box;
 }
 
 .chat-input .form-control {
     flex: 1;
     border-radius: var(--radius-xl);
-    border: 1px solid var(--border);
+    border: 1px solid var(--gray-600);
     padding: var(--space-3) var(--space-4);
     font-size: 16px; /* prevent iOS zoom on focus */
     resize: none;
     min-height: 2.5rem;
     max-height: 120px;
     line-height: 1.4;
+    background: var(--gray-900);
+    color: var(--white);
 }
 
 .chat-input .form-control:focus {
     outline: none;
-    border-color: var(--black);
-    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.1);
+    border-color: var(--white);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
 }
 
 /* Send Button - Modern Design */
 .btn-send {
-    background: var(--black);
-    color: var(--white);
+    background: var(--white);
+    color: var(--black);
     border: none;
     border-radius: var(--radius-xl);
     width: 2.5rem;
@@ -606,7 +632,7 @@ p {
 }
 
 .btn-send:hover {
-    background: var(--gray-800);
+    background: var(--gray-200);
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
