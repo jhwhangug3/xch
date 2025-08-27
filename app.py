@@ -23,6 +23,7 @@ import base64
 from markupsafe import Markup, escape
 import re
 from werkzeug.utils import secure_filename
+import requests
 
 app = Flask(__name__)
 # Use stable secret from env if provided to persist sessions across restarts
@@ -1617,6 +1618,41 @@ def upload_chat_attachment():
     url = url_for('serve_upload', filename=f"chat/{safe_name}")
     return jsonify({'url': url})
 
+# Geocoding proxy (avoids CORS and requires UA)
+@app.route('/api/geo/search')
+def geo_search():
+    q = (request.args.get('q') or '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    out = []
+    headers = {'User-Agent': 'xch-app/1.0 (+https://example.com)'}
+    try:
+        r1 = requests.get('https://nominatim.openstreetmap.org/search', params={
+            'format': 'jsonv2', 'addressdetails': 1, 'limit': 5, 'q': q
+        }, headers=headers, timeout=6)
+        if r1.ok:
+            out = r1.json()
+    except Exception:
+        out = []
+    if not out:
+        try:
+            r2 = requests.get('https://geocode.maps.co/search', params={'q': q}, headers=headers, timeout=6)
+            if r2.ok:
+                j2 = r2.json()
+                if isinstance(j2, list):
+                    out = [{ 'display_name': it.get('display_name'), 'lat': it.get('lat'), 'lon': it.get('lon') } for it in j2]
+        except Exception:
+            pass
+    # Normalize output
+    norm = []
+    for it in out[:5]:
+        name = (it.get('display_name') or '').strip()
+        lat = it.get('lat'); lon = it.get('lon')
+        if not name or not lat or not lon:
+            continue
+        norm.append({'display_name': name, 'lat': str(lat), 'lon': str(lon)})
+    return jsonify(norm)
+
 # Jinja filter to linkify @username mentions and URLs in bio safely
 @app.template_filter('linkify_bio')
 def linkify_bio(text):
@@ -1634,4 +1670,6 @@ def linkify_bio(text):
 
 
 if __name__ == '__main__':
-    app.run(debug=False, threaded=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    host = os.environ.get('HOST', '127.0.0.1')
+    port = int(os.environ.get('PORT', 5050))
+    app.run(debug=False, threaded=True, host=host, port=port)
