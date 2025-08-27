@@ -67,6 +67,16 @@ body {
     -webkit-text-size-adjust: 100%;
     margin: 0;
     padding: 0;
+    /* Prevent any unwanted scrolling behavior */
+    overscroll-behavior: none;
+    /* Handle mobile viewport changes */
+    height: 100vh;
+    height: 100dvh;
+    height: 100svh;
+    /* Ensure body adapts to mobile keyboard */
+    min-height: 100svh;
+    /* Handle mobile viewport changes smoothly */
+    transition: height 0.3s ease;
 }
 
 /* Prevent body scroll when chat is active */
@@ -312,6 +322,14 @@ p {
     /* Ensure proper scroll behavior */
     min-height: 100vh;
     min-height: 100dvh;
+    /* Prevent any unwanted scrolling */
+    overscroll-behavior: contain;
+    /* Handle mobile keyboard properly */
+    height: 100svh; /* Support for modern mobile browsers */
+    /* Ensure container adapts to mobile keyboard */
+    min-height: 100svh;
+    /* Handle mobile viewport changes smoothly */
+    transition: height 0.3s ease;
 }
 
 /* Chat Header - Modern & Clean */
@@ -327,6 +345,9 @@ p {
     position: sticky;
     top: 0;
     z-index: 1001;
+    /* Ensure header doesn't interfere with scrolling */
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .chat-header .user-info {
@@ -390,19 +411,29 @@ p {
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--space-5);
-    padding-top: calc(var(--chat-header-h, 72px));
-    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom) + 40px);
+    padding-bottom: 120px; /* Increased padding to ensure messages are above input bar */
     background: var(--gray-50);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     position: relative;
     height: 100%;
     min-height: 0;
-    /* Ensure proper scroll behavior */
-    scroll-padding-bottom: 40px;
-    /* Force scroll to bottom */
-    scroll-snap-type: y proximity;
-    scroll-snap-align: end;
+    /* Prevent flickering and ensure smooth scrolling */
+    will-change: scroll-position;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    /* Ensure messages are always visible above input */
+    box-sizing: border-box;
+    /* Handle mobile keyboard and ensure proper spacing */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    /* Ensure messages are always visible above input bar */
+    margin-bottom: 0;
+    /* Ensure messages area adapts to mobile keyboard */
+    min-height: calc(100vh - 200px);
+    min-height: calc(100dvh - 200px);
+    min-height: calc(100svh - 200px);
+    /* Handle mobile viewport changes smoothly */
+    transition: min-height 0.3s ease;
 }
 
 .message {
@@ -410,6 +441,9 @@ p {
     animation: fadeInUp 0.2s ease-out;
     display: flex;
     flex-direction: column;
+    /* Prevent flickering during animations */
+    will-change: transform, opacity;
+    transform: translateZ(0);
 }
 
 /* Ensure last message has proper bottom spacing */
@@ -514,12 +548,27 @@ p {
     right: 0;
     bottom: 0;
     z-index: 1002;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+    /* Ensure input is above messages but below other UI elements */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    /* Handle mobile keyboard properly */
+    transform: translateZ(0);
+    /* Ensure input stays visible above mobile keyboard */
+    position: fixed;
+    bottom: env(safe-area-inset-bottom);
+    /* Ensure input is always above messages */
+    z-index: 1002;
+    /* Handle mobile keyboard viewport changes */
+    transition: bottom 0.3s ease;
 }
 
 .chat-input form {
     display: flex;
     gap: var(--space-3);
     align-items: flex-end;
+    /* Ensure consistent height and prevent layout shifts */
+    min-height: 2.5rem;
 }
 
 .chat-input .form-control {
