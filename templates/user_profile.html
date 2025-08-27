@@ -56,41 +56,15 @@
                 <h6 class="text-muted mb-1">Bio</h6>
                 <p class="mb-0">{{ (profile.bio | linkify_bio) if profile and profile.bio else 'No bio yet.' }}</p>
             </div>
-            {% set links = (profile.privacy_settings | default('{}')) %}
-            {% set links_json = links and links %}
-            {% set links_data = [] %}
-            {% if profile and profile.privacy_settings %}
-                {% set _ps = profile.privacy_settings | tojson %}
-            {% endif %}
-            {% set _parsed = None %}
-            {% if profile and profile.privacy_settings %}
-                {% set _parsed = profile.privacy_settings | safe %}
-            {% endif %}
-            {% if profile and profile.privacy_settings %}
-                {% set ps = profile.privacy_settings %}
-                {% set _ = [] %}
-            {% endif %}
-            {% set ps = profile.privacy_settings and profile.privacy_settings %}
-            {% if ps %}
-                {% set obj = ps | tojson %}
-            {% endif %}
-            <!-- Simple links list -->
-            {% set links_list = [] %}
-            {% if profile and profile.privacy_settings %}
-                {% set _obj = profile.privacy_settings | safe %}
-            {% endif %}
-            {% if profile and profile.privacy_settings %}
-                {% set _links = (profile.privacy_settings | loadjson).get('links') if (profile.privacy_settings | loadjson) else [] %}
-                {% if _links %}
-                <div class="mb-3">
-                    <h6 class="text-muted mb-1">Links</h6>
-                    <ul class="mb-0">
-                        {% for l in _links %}
-                        <li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.title or l.url }}</a></li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
+            {% if links and links|length > 0 %}
+            <div class="mb-3">
+                <h6 class="text-muted mb-1">Links</h6>
+                <ul class="mb-0">
+                    {% for l in links %}
+                    <li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.title or l.url }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% endif %}
             <div class="mb-3">
                 <h6 class="text-muted mb-1">Contact</h6>
