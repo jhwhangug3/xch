@@ -459,7 +459,15 @@ def profile():
         db.session.add(profile)
         db.session.commit()
     
-    return render_template('profile.html', user=user, profile=profile)
+    links = []
+    try:
+        if profile and profile.privacy_settings:
+            ps = json.loads(profile.privacy_settings)
+            links = ps.get('links') or []
+    except Exception:
+        links = []
+    
+    return render_template('profile.html', user=user, profile=profile, links=links)
 
 @app.route('/@<username>')
 def view_user_profile_by_username(username):
