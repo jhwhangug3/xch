@@ -66,45 +66,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
-# Auto-migration function to add missing columns
-def run_auto_migration():
-    """Automatically add missing columns to the database"""
-    try:
-        with app.app_context():
-            # Check if location column exists
-            result = db.session.execute(db.text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'user_profiles' 
-                AND column_name = 'location'
-            """))
-            
-            if not result.fetchone():
-                print("🔄 Auto-migrating: Adding location column to user_profiles table...")
-                db.session.execute(db.text("""
-                    ALTER TABLE user_profiles 
-                    ADD COLUMN location VARCHAR(200) DEFAULT NULL
-                """))
-                db.session.commit()
-                print("✅ Successfully added location column to user_profiles table")
-            else:
-                print("✅ Location column already exists in user_profiles table")
-                
-    except Exception as e:
-        print(f"⚠️ Auto-migration warning: {e}")
-        print("This is normal if the column already exists or if there are permission issues")
-        
-    # Force SQLAlchemy to refresh table metadata after migration
-    try:
-        with app.app_context():
-            db.engine.execute(db.text("SELECT 1"))  # Test connection
-            print("🔄 Refreshing SQLAlchemy table metadata...")
-            # Clear any cached table definitions
-            db.Model.metadata.clear()
-            db.Model.metadata.reflect(bind=db.engine)
-            print("✅ Table metadata refreshed successfully")
-    except Exception as e:
-        print(f"⚠️ Metadata refresh warning: {e}")
+# Database migration will be handled by build command
 
 # Global encryption key for message encryption
 ENCRYPTION_KEY = Fernet.generate_key()
@@ -498,33 +460,20 @@ def profile():
     
     user = User.query.get(session['user_id'])
     
+    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+    
+    if not profile:
+        profile = UserProfile(user_id=session['user_id'])
+        db.session.add(profile)
+        db.session.commit()
+    
+    # Get links from privacy_settings
+    links = []
     try:
-        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
-        
-        if not profile:
-            profile = UserProfile(user_id=session['user_id'])
-            db.session.add(profile)
-            db.session.commit()
-        
-        # Get links from privacy_settings
-        links = []
-        try:
-            if profile and profile.privacy_settings:
-                ps = json.loads(profile.privacy_settings)
-                links = ps.get('links') or []
-        except Exception:
-            links = []
-            
-    except Exception as e:
-        # Handle case where location column doesn't exist yet
-        print(f"Warning: Database schema issue: {e}")
-        # Create a minimal profile object with default values
-        profile = type('Profile', (), {
-            'bio': '',
-            'location': '',
-            'timezone': 'UTC',
-            'privacy_settings': '{}'
-        })()
+        if profile and profile.privacy_settings:
+            ps = json.loads(profile.privacy_settings)
+            links = ps.get('links') or []
+    except Exception:
         links = []
     
     return render_template('profile.html', user=user, profile=profile, links=links)
@@ -657,20 +606,14 @@ def update_profile():
             profile.theme_preference = data['theme_preference']
             updated_fields.append('theme_preference')
         
-        # Handle location and timezone (with fallback for missing columns)
-        try:
-            if 'location' in data and data['location'] is not None:
-                profile.location = data['location'].strip()
-                updated_fields.append('location')
-        except AttributeError:
-            print("Location column not available yet")
+        # Update location and timezone
+        if 'location' in data and data['location'] is not None:
+            profile.location = data['location'].strip()
+            updated_fields.append('location')
         
-        try:
-            if 'timezone' in data and data['timezone']:
-                profile.timezone = data['timezone'].strip()
-                updated_fields.append('timezone')
-        except AttributeError:
-            print("Timezone column not available yet")
+        if 'timezone' in data and data['timezone']:
+            profile.timezone = data['timezone'].strip()
+            updated_fields.append('timezone')
         
         # Update links in privacy_settings
         if 'links' in data and isinstance(data['links'], list):
@@ -1816,13 +1759,10 @@ if __name__ == '__main__':
     host = os.environ.get('HOST', '127.0.0.1')
     port = int(os.environ.get('PORT', 5050))
     
-    # Create tables if they don't exist and run auto-migration
+    # Create tables if they don't exist
     with app.app_context():
         db.create_all()
         print("Database initialized successfully with all tables!")
         print("Users, profiles, friendships, and messages tables ready!")
-        
-        # Run auto-migration to add missing columns
-        run_auto_migration()
     
     app.run(debug=False, threaded=True, host=host, port=port)
