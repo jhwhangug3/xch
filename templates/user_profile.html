@@ -10,100 +10,71 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
 </head>
 <body>
-    <div class="container py-4">
-        <a href="{{ url_for('dashboard') }}" class="back-button mb-3 d-inline-block"><i class="fas fa-arrow-left me-2"></i>Back</a>
-        <div class="card p-4">
-            <div class="d-flex align-items-center gap-3">
-                <div class="user-avatar overflow-hidden" style="width:64px;height:64px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;">
-                    {% if user.profile_picture %}
-                        <img src="{{ user.profile_picture }}" alt="" style="width:100%;height:100%;object-fit:cover;">
-                    {% else %}
-                        <i class="fas fa-user fa-lg"></i>
-                    {% endif %}
-                </div>
-                <div>
-                    <h3 class="mb-1">{{ user.first_name or user.username }} {{ user.last_name or '' }}</h3>
-                    <div class="text-muted">@{{ user.username }}</div>
-                    {% if user.is_online %}
-                        <span class="badge bg-success">Online</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Offline</span>
-                    {% endif %}
-                </div>
-            </div>
-            <hr/>
-            <div class="mb-3">
-                <h6 class="text-muted mb-2">Friends ({{ friends|length }})</h6>
-                <div class="row g-3">
-                    {% for f in friends %}
-                    <div class="col-6 col-md-3">
-                        <a href="{{ url_for('view_user_profile_by_username', username=f.username) }}" class="text-decoration-none d-flex align-items-center gap-2">
-                            {% if f.profile_picture %}
-                                <img src="{{ f.profile_picture }}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
-                            {% else %}
-                                <i class="fas fa-user-circle fa-lg"></i>
-                            {% endif %}
-                            <span class="text-truncate">{{ f.first_name or f.username }}</span>
-                        </a>
-                    </div>
-                    {% endfor %}
-                    {% if not friends %}
-                        <div class="col-12 text-muted">No friends yet</div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="mb-3">
-                <h6 class="text-muted mb-1">Bio</h6>
-                <p class="mb-0">{{ (profile.bio | linkify_bio) if profile and profile.bio else 'No bio yet.' }}</p>
-            </div>
-            {% if links and links|length > 0 %}
-            <div class="mb-3">
-                <h6 class="text-muted mb-1">Links</h6>
-                <ul class="mb-0">
-                    {% for l in links %}
-                    <li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ l.title or l.url }}</a></li>
-                    {% endfor %}
-                </ul>
-            </div>
+    <header class="pf-header">
+        <a href="{{ url_for('dashboard') }}" class="pf-back"><i class="fas fa-arrow-left"></i></a>
+        <div class="pf-avatar">
+            {% if user.profile_picture %}
+            <img src="{{ user.profile_picture }}" alt="">
+            {% else %}
+            <i class="fas fa-user"></i>
             {% endif %}
-            <div class="mb-3">
-                <h6 class="text-muted mb-1">Contact</h6>
-                <p class="mb-0">{{ user.email or '—' }}</p>
-            </div>
-            <div class="d-flex gap-2">
-                <a class="btn btn-dark" href="{{ url_for('direct_chat', user_id=user.id) }}">
-                    <i class="fas fa-message me-2"></i>Message
-                </a>
-            </div>
         </div>
+        <div class="pf-meta">
+            <h1 class="pf-name">{{ user.first_name or user.username }} {{ user.last_name or '' }}</h1>
+            <div class="pf-username">@{{ user.username }}</div>
+            <span class="pf-presence" id="presencePill">{{ 'Online' if user.is_online else 'Offline' }}</span>
+        </div>
+        <div class="pf-actions">
+            <a class="btn btn-dark btn-sm" href="{{ url_for('direct_chat', user_id=user.id) }}"><i class="fas fa-message me-2"></i>Message</a>
+        </div>
+    </header>
 
-        <!-- Local Information Section -->
-        <div class="card p-4 mt-4">
-            <h4 class="section-title mb-3">
-                <i class="fas fa-globe text-primary me-2"></i>Local Information
-            </h4>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="fas fa-clock text-primary me-3 fa-lg"></i>
-                        <div>
-                            <h6 class="mb-1">Local Time</h6>
-                            <small class="text-muted" id="localTime">Loading...</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="fas fa-map-marker-alt text-success me-3 fa-lg"></i>
-                        <div>
-                            <h6 class="mb-1">Location</h6>
-                            <small class="text-muted" id="userLocation">Loading...</small>
-                        </div>
-                    </div>
-                </div>
+    <main class="pf-main">
+        {% if profile and profile.bio %}
+        <section class="pf-section">
+            <div class="pf-label">Bio</div>
+            <div class="pf-text">{{ profile.bio | linkify_bio }}</div>
+        </section>
+        {% endif %}
+
+        {% if links and links|length > 0 %}
+        <section class="pf-section">
+            <div class="pf-label">Links</div>
+            <div class="pf-links">
+                {% for l in links %}
+                <a href="{{ l.url }}" target="_blank" rel="noopener" class="pf-chip"><i class="fas fa-link me-1"></i>{{ l.title or l.url }}</a>
+                {% endfor %}
             </div>
-        </div>
-    </div>
+        </section>
+        {% endif %}
+
+        <section class="pf-section">
+            <div class="pf-label">Local</div>
+            <div class="pf-local">
+                <div><i class="fas fa-clock me-2"></i><span id="localTime">Loading…</span></div>
+                <div><i class="fas fa-map-marker-alt me-2"></i><span id="userLocation">Loading…</span></div>
+            </div>
+        </section>
+
+        <section class="pf-section">
+            <div class="pf-label">Friends ({{ friends|length }})</div>
+            <div class="pf-friends">
+                {% for f in friends %}
+                <a href="{{ url_for('view_user_profile_by_username', username=f.username) }}" class="pf-friend">
+                    {% if f.profile_picture %}
+                    <img src="{{ f.profile_picture }}" alt="">
+                    {% else %}
+                    <i class="fas fa-user-circle"></i>
+                    {% endif %}
+                    <span>{{ f.first_name or f.username }}</span>
+                </a>
+                {% endfor %}
+                {% if not friends %}
+                <div class="text-muted small">No friends yet</div>
+                {% endif %}
+            </div>
+        </section>
+    </main>
 
     <script>
         // Presence and precise location/time for viewed user
@@ -112,12 +83,9 @@
             try {
                 const res = await fetch(`/api/presence/${VIEWED_USER_ID}`);
                 const d = await res.json();
-                const badge = document.querySelector('.badge');
-                if (d.online) {
-                    if (badge) { badge.classList.remove('bg-secondary'); badge.classList.add('bg-success'); badge.textContent = 'Online'; }
-                } else {
-                    if (badge) { badge.classList.remove('bg-success'); badge.classList.add('bg-secondary'); badge.textContent = 'Offline'; }
-                }
+                const pill = document.getElementById('presencePill');
+                if (d.online) { pill.textContent = 'Online'; pill.classList.add('online'); pill.classList.remove('offline'); }
+                else { pill.textContent = 'Offline'; pill.classList.add('offline'); pill.classList.remove('online'); }
             } catch (e) {}
         }
         async function loadPreciseLocation() {
@@ -125,7 +93,6 @@
                 const res = await fetch(`/api/profile/location/${VIEWED_USER_ID}`);
                 const data = await res.json();
                 if (data.timezone) {
-                    // Update local time using friend's timezone
                     const tz = data.timezone;
                     function updateLocalTimeTz() {
                         try {
@@ -155,7 +122,6 @@
             loadPreciseLocation();
         });
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
