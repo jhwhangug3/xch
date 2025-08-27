@@ -19,8 +19,8 @@
                     <div class="chat-header" id="chatHeaderBar">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-3">
-                                <a href="{{ url_for('dashboard') }}" class="back-button">
-                                    <i class="fas fa-arrow-left me-2"></i>Back
+                                <a href="{{ url_for('dashboard') }}" class="back-button p-1" title="Back">
+                                    <i class="fas fa-arrow-left fa-sm"></i>
                                 </a>
                                 <div class="user-info">
                                     <a href="{{ url_for('view_user_profile_by_username', username=other_user.username) }}" class="d-flex align-items-center text-decoration-none">
@@ -47,6 +47,9 @@
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
                                 <div class="dropstart">
                                     <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="fas fa-ellipsis"></i>
@@ -217,8 +220,8 @@
                 this.messages = [];
                 this.currentUser = '{{ session.username }}';
                 this.otherUser = '{{ other_user.username }}';
-                this.otherUserId = {{ other_user.id }};
-                this.currentUserId = {{ session.user_id }};
+                this.otherUserId = {{ other_user.id | tojson }};
+                this.currentUserId = {{ session.user_id | tojson }};
                 this.messageForm = document.getElementById('messageForm');
                 this.messageInput = document.getElementById('messageInput');
                 this.chatMessages = document.getElementById('chatMessages');
@@ -620,26 +623,12 @@
                                 this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                             }
                         }, 10);
-                        
-                        // Method 4: Double-check after a short delay
-                        setTimeout(() => {
-                            if (this.chatMessages.scrollTop < this.chatMessages.scrollHeight - 10) {
-                                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-                            }
-                        }, 50);
-                        
-                        // Method 5: Final verification after layout
-                        setTimeout(() => {
-                            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-                        }, 100);
-                        
                     } catch (e) {
                         // Ultimate fallback
                         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                     }
                 };
                 
-                // Use requestAnimationFrame for smooth performance
                 if (force) {
                     scrollToBottomGuaranteed();
                 } else {
@@ -647,15 +636,63 @@
                 }
             }
 
+            isNearBottom(thresholdPx = 80) {
+                if (!this.chatMessages) return true;
+                const distanceFromBottom = this.chatMessages.scrollHeight - this.chatMessages.scrollTop - this.chatMessages.clientHeight;
+                return distanceFromBottom <= thresholdPx;
+            }
+
+            maybeAutoScroll(force = false) {
+                if (force || this.isNearBottom()) {
+                    this.scrollToBottom(true);
+                }
+            }
+
             startUltraFastPolling() {
-                // Check for new messages frequently
-                setInterval(() => { this.checkForNewMessages(); }, 600);
+                // Check for new messages more frequently to prevent loss
+                setInterval(() => { this.checkForNewMessages(); }, 400);
                 // Poll other user's typing status
                 setInterval(() => { this.pollTyping(); }, 300);
                 // Poll read receipts to update sent message status quickly
-                setInterval(() => { this.pollReadReceipts(); }, 600);
+                setInterval(() => { this.pollReadReceipts(); }, 500);
                 // Short burst right after opening
                 this.startReadBurst();
+                // Additional message recovery check every 5 seconds
+                setInterval(() => { this.recoverLostMessages(); }, 5000);
+            }
+
+            async recoverLostMessages() {
+                try {
+                    // If we have messages but no timestamp, reload all messages
+                    if (this.messages.length > 0 && !this.lastMessageTimestamp) {
+                        console.log('Recovering lost messages - no timestamp available');
+                        await this.loadMessages();
+                        return;
+                    }
+                    
+                    // Check if we're missing recent messages by comparing with server
+                    const response = await fetch(`/api/messages/${this.otherUserId}/latest`, { 
+                        headers: { 'Cache-Control': 'no-cache' }, 
+                        credentials: 'same-origin' 
+                    });
+                    if (response.ok) {
+                        const payload = await response.json();
+                        const serverMessages = Array.isArray(payload) ? payload : (payload.messages || []);
+                        
+                        if (serverMessages.length > 0) {
+                            const lastServerMsg = serverMessages[serverMessages.length - 1];
+                            const lastLocalMsg = this.messages[this.messages.length - 1];
+                            
+                            // If server has newer messages than we do, reload
+                            if (!lastLocalMsg || new Date(lastServerMsg.timestamp) > new Date(lastLocalMsg.timestamp)) {
+                                console.log('Recovering lost messages - server has newer data');
+                                await this.loadMessages();
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in message recovery:', error);
+                }
             }
 
             async pollReadReceipts() {
