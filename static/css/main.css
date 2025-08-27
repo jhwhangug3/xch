@@ -1515,3 +1515,8 @@ p {
 .pf-friend img{width:28px;height:28px;border-radius:50%;object-fit:cover}
 .pf-friend:hover{background:#f1f1f1}
 @media(min-width:768px){.pf-main{padding:24px 32px}}
+
+/* Direct chat header actions */
+.header-actions-right{margin-left:auto; margin-right:0;}
+.chat-header .header-actions-right{position:relative;}
+.info-btn{width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
