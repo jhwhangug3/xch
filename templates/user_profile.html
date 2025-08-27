@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +9,7 @@
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
 </head>
-<body>
+<body data-viewed-user-id="{{ user.id }}">
     <header class="pf-header">
         <a href="{{ url_for('dashboard') }}" class="pf-back"><i class="fas fa-arrow-left"></i></a>
         <div class="pf-avatar">
@@ -18,11 +18,11 @@
             {% else %}
             <i class="fas fa-user"></i>
             {% endif %}
+            <span id="presenceDot" class="presence-dot offline" aria-label="presence"></span>
         </div>
         <div class="pf-meta">
             <h1 class="pf-name">{{ user.first_name or user.username }} {{ user.last_name or '' }}</h1>
             <div class="pf-username">@{{ user.username }}</div>
-            <span class="pf-presence" id="presencePill">{{ 'Online' if user.is_online else 'Offline' }}</span>
         </div>
         <div class="pf-actions">
             <a class="btn btn-dark btn-sm" href="{{ url_for('direct_chat', user_id=user.id) }}"><i class="fas fa-message me-2"></i>Message</a>
@@ -33,7 +33,7 @@
         {% if profile and profile.bio %}
         <section class="pf-section">
             <div class="pf-label">Bio</div>
-            <div class="pf-text">{{ profile.bio | linkify_bio }}</div>
+            <div class="pf-text" id="bioText" data-profile-url-template="{{ url_for('view_user_profile_by_username', username='__USERNAME__') }}">{{ profile.bio }}</div>
         </section>
         {% endif %}
 
@@ -58,7 +58,8 @@
 
         <section class="pf-section">
             <div class="pf-label">Friends ({{ friends|length }})</div>
-            <div class="pf-friends">
+            <button class="btn btn-secondary btn-sm" id="toggleFriendsBtn"><i class="fas fa-chevron-down me-2"></i>Show Friends</button>
+            <div class="pf-friends mt-2 d-none" id="friendsContent">
                 {% for f in friends %}
                 <a href="{{ url_for('view_user_profile_by_username', username=f.username) }}" class="pf-friend">
                     {% if f.profile_picture %}
@@ -78,15 +79,31 @@
 
     <script>
         // Presence and precise location/time for viewed user
-        const VIEWED_USER_ID = {{ user.id }};
+        const VIEWED_USER_ID = Number(document.body.getAttribute('data-viewed-user-id'));
         async function pollPresence() {
             try {
                 const res = await fetch(`/api/presence/${VIEWED_USER_ID}`);
                 const d = await res.json();
-                const pill = document.getElementById('presencePill');
-                if (d.online) { pill.textContent = 'Online'; pill.classList.add('online'); pill.classList.remove('offline'); }
-                else { pill.textContent = 'Offline'; pill.classList.add('offline'); pill.classList.remove('online'); }
-            } catch (e) {}
+                const dot = document.getElementById('presenceDot');
+                if (d.online) { dot && (dot.classList.add('online'), dot.classList.remove('offline')); }
+                else { dot && (dot.classList.add('offline'), dot.classList.remove('online')); }
+            } catch (e) {
+                const dot = document.getElementById('presenceDot');
+                dot && (dot.classList.add('offline'), dot.classList.remove('online'));
+            }
+        }
+        function autolinkBio() {
+            const el = document.getElementById('bioText');
+            if (!el) return;
+            const template = el.getAttribute('data-profile-url-template') || '/u/__USERNAME__';
+            const escapeHtml = (t) => { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; };
+            const raw = el.textContent || '';
+            const escaped = escapeHtml(raw);
+            const linked = escaped.replace(/(^|\s)@([a-zA-Z0-9_\.]{3,30})/g, (m, pre, uname) => {
+                const href = template.replace('__USERNAME__', uname);
+                return `${pre}<a href="${href}">@${uname}</a>`;
+            }).replace(/\n/g, '<br>');
+            el.innerHTML = linked;
         }
         async function loadPreciseLocation() {
             try {
@@ -108,18 +125,44 @@
                     }
                     updateLocalTimeTz();
                     setInterval(updateLocalTimeTz, 1000);
+                    // Privacy-friendly location display from timezone
+                    try {
+                        if (tz.includes('/')) {
+                            const parts = tz.split('/');
+                            const region = parts[0].replace('_', ' ');
+                            const city = parts.slice(1).join('/').replace(/_/g, ' ');
+                            document.getElementById('userLocation').textContent = `${city}, ${region}`;
+                        } else {
+                            document.getElementById('userLocation').textContent = tz;
+                        }
+                    } catch (e) {}
+                } else {
+                    document.getElementById('userLocation').textContent = 'Location unavailable';
                 }
-                if (data.lat != null && data.lon != null) {
-                    const lat = Number(data.lat).toFixed(4);
-                    const lon = Number(data.lon).toFixed(4);
-                    document.getElementById('userLocation').textContent = `📍 ${lat}, ${lon}`;
-                }
-            } catch (e) {}
+            } catch (e) {
+                document.getElementById('userLocation').textContent = 'Location unavailable';
+            }
         }
         document.addEventListener('DOMContentLoaded', function() {
             pollPresence();
             setInterval(pollPresence, 8000);
             loadPreciseLocation();
+            autolinkBio();
+            // Friends toggle
+            const btn = document.getElementById('toggleFriendsBtn');
+            const content = document.getElementById('friendsContent');
+            if (btn && content) {
+                btn.addEventListener('click', function() {
+                    const hidden = content.classList.contains('d-none');
+                    if (hidden) {
+                        content.classList.remove('d-none');
+                        btn.innerHTML = '<i class="fas fa-chevron-up me-2"></i>Hide Friends';
+                    } else {
+                        content.classList.add('d-none');
+                        btn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>Show Friends';
+                    }
+                });
+            }
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
