@@ -23,7 +23,7 @@
                                     <i class="fas fa-arrow-left me-2"></i>Back
                                 </a>
                                 <div class="user-info">
-                                    <a href="{{ url_for('view_user_profile', user_id=other_user.id) }}" class="d-flex align-items-center text-decoration-none">
+                                    <a href="{{ url_for('view_user_profile_by_username', username=other_user.username) }}" class="d-flex align-items-center text-decoration-none">
                                         <div class="user-avatar overflow-hidden me-2">
                                             {% if other_user.profile_picture %}
                                                 <img src="{{ other_user.profile_picture }}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
