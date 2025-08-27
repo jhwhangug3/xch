@@ -129,6 +129,7 @@
                 </li>
             </ul>
             <div class="settings-footer">
+                <button id="testProfileBtn" class="btn btn-outline-info me-2"><i class="fas fa-bug me-2"></i>Test Profile</button>
                 <button id="saveAllBtn" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save All</button>
             </div>
         </div>
@@ -426,34 +427,68 @@
             const payload = {
                 first_name: (document.getElementById('first_name') && document.getElementById('first_name').value) || '',
                 last_name: '',
-                bio: document.getElementById('bio').value,
-                links: linksState,
-                location: document.getElementById('location').value,
-                timezone: document.getElementById('timezone').value,
-                new_username: document.getElementById('new_username').value,
+                bio: (document.getElementById('bio') && document.getElementById('bio').value) || '',
+                links: linksState || [],
+                location: (document.getElementById('location') && document.getElementById('location').value) || '',
+                timezone: (document.getElementById('timezone') && document.getElementById('timezone').value) || 'UTC',
+                new_username: (document.getElementById('new_username') && document.getElementById('new_username').value) || '',
             };
+            
+            console.log('Saving profile with payload:', payload);
+            
             try {
                 const res = await fetch('/api/profile/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                
                 const out = await res.json();
+                console.log('Profile update response:', out);
+                
                 if (res.ok) {
-                    showAlert('Profile saved', 'success');
+                    showAlert(`Profile saved successfully! Updated: ${out.updated_fields?.join(', ') || 'all fields'}`, 'success');
+                    
                     // Update the settings title to show the new name
                     const titleElement = document.querySelector('.settings-title');
                     if (titleElement) {
-                        titleElement.textContent = 'Edit Profile - ' + (payload.first_name || payload.new_username || '{{ user.username }}');
+                        const newName = payload.first_name || payload.new_username || '{{ user.username }}';
+                        titleElement.textContent = 'Edit Profile - ' + newName;
+                    }
+                    
+                    // Update the username field if it was changed
+                    if (out.updated_fields && out.updated_fields.includes('username')) {
+                        const usernameField = document.getElementById('new_username');
+                        if (usernameField) {
+                            usernameField.value = payload.new_username;
+                        }
                     }
                 } else {
-                    showAlert(out.error || 'Failed to save', 'error');
+                    showAlert(out.error || 'Failed to save profile', 'error');
                 }
-            } catch (_) {
-                showAlert('Failed to save', 'error');
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                showAlert('Failed to save profile: ' + error.message, 'error');
             }
         }
         document.getElementById('saveAllBtn').addEventListener('click', saveAll);
+        
+        // Test profile functionality
+        document.getElementById('testProfileBtn').addEventListener('click', async function() {
+            try {
+                const res = await fetch('/api/profile/test');
+                const data = await res.json();
+                if (res.ok) {
+                    console.log('Profile test result:', data);
+                    showAlert('Profile system test passed! Check console for details.', 'success');
+                } else {
+                    showAlert('Profile test failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Profile test error:', error);
+                showAlert('Profile test error: ' + error.message, 'error');
+            }
+        });
 
         // Debounced autosave on change
         function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
