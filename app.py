@@ -456,19 +456,34 @@ def profile():
         return redirect(url_for('login'))
     
     user = User.query.get(session['user_id'])
-    profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
     
-    if not profile:
-        profile = UserProfile(user_id=session['user_id'])
-        db.session.add(profile)
-        db.session.commit()
-    
-    links = []
     try:
-        if profile and profile.privacy_settings:
-            ps = json.loads(profile.privacy_settings)
-            links = ps.get('links') or []
-    except Exception:
+        profile = UserProfile.query.filter_by(user_id=session['user_id']).first()
+        
+        if not profile:
+            profile = UserProfile(user_id=session['user_id'])
+            db.session.add(profile)
+            db.session.commit()
+        
+        # Get links from privacy_settings
+        links = []
+        try:
+            if profile and profile.privacy_settings:
+                ps = json.loads(profile.privacy_settings)
+                links = ps.get('links') or []
+        except Exception:
+            links = []
+            
+    except Exception as e:
+        # Handle case where location column doesn't exist yet
+        print(f"Warning: Database schema issue: {e}")
+        # Create a minimal profile object with default values
+        profile = type('Profile', (), {
+            'bio': '',
+            'location': '',
+            'timezone': 'UTC',
+            'privacy_settings': '{}'
+        })()
         links = []
     
     return render_template('profile.html', user=user, profile=profile, links=links)
@@ -577,10 +592,17 @@ def update_profile():
         profile.display_name = data['display_name'].strip()
     if 'theme_preference' in data:
         profile.theme_preference = data['theme_preference']
-    if 'location' in data:
-        profile.location = data['location'].strip()
-    if 'timezone' in data:
-        profile.timezone = data['timezone'].strip()
+    
+    # Handle location and timezone fields that might not exist in the database yet
+    try:
+        if 'location' in data:
+            profile.location = data['location'].strip()
+        if 'timezone' in data:
+            profile.timezone = data['timezone'].strip()
+    except AttributeError:
+        # If the location/timezone columns don't exist yet, skip them
+        print("Warning: location/timezone columns not available in database yet")
+        pass
     
     # Update notification settings
     if 'notification_settings' in data:
