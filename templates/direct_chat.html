@@ -68,6 +68,9 @@
                             <i class="fas fa-comments fa-2x mb-2"></i>
                             <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
                         </div>
+                        <button id="goToBottomBtn" type="button" class="btn btn-secondary btn-sm position-fixed" style="right:16px; bottom: calc(var(--chat-input-h, 88px) + 16px); display:none; z-index: 1003; border-radius:999px; padding:6px 10px;">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
                     </div>
 
                     <!-- Chat Input -->
@@ -344,11 +347,7 @@
                 // Display message immediately
                 this.messages.push(tempMessage);
                 this.displayMessages();
-                // Aggressive scroll to bottom for sent messages
-                this.scrollToBottom(true);
-                setTimeout(() => this.scrollToBottom(true), 5);
-                setTimeout(() => this.scrollToBottom(true), 25);
-                setTimeout(() => this.scrollToBottom(true), 75);
+                // No auto-scroll; user controls scrolling
 
                 // Add to message queue for sending
                 this.messageQueue.push({
@@ -474,11 +473,8 @@
                             }
                             
                             this.displayMessages();
-                            // Aggressive scroll to bottom for new messages
-                            this.scrollToBottom(true);
-                            setTimeout(() => this.scrollToBottom(true), 25);
-                            setTimeout(() => this.scrollToBottom(true), 75);
-                            setTimeout(() => this.scrollToBottom(true), 150);
+                            // No auto-scroll on incoming; show button via scroll listener
+                            
                             // Notify for incoming messages from the other user
                             const incoming = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
                             if (incoming.length > 0) {
@@ -549,11 +545,8 @@
                     `;
                 }).join('') + typingHTML;
 
-                // Aggressive scroll to bottom after displaying messages
-                this.scrollToBottom(true);
-                setTimeout(() => this.scrollToBottom(true), 5);
-                setTimeout(() => this.scrollToBottom(true), 25);
-                setTimeout(() => this.scrollToBottom(true), 75);
+                // Only scroll if user is near bottom
+                this.maybeAutoScroll(false);
             }
 
             async pollTyping() {
@@ -789,39 +782,26 @@
             document.body.classList.add('chat-active');
             window.ultraFastChatApp = new UltraFastChatApp();
             
-            // Multiple aggressive scroll attempts to guarantee bottom positioning
             const chatMessages = document.getElementById('chatMessages');
-            if (chatMessages) {
-                // Immediate scroll
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                
-                // Multiple delayed scrolls to handle any layout issues
-                setTimeout(() => {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 50);
-                setTimeout(() => {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 150);
-                setTimeout(() => {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 300);
-                setTimeout(() => {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 500);
-                setTimeout(() => {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 1000);
+            const goBtn = document.getElementById('goToBottomBtn');
+            function isNearBottom(el, thresholdPx = 40) {
+                if (!el) return true;
+                const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+                return distance <= thresholdPx;
+            }
+            if (chatMessages && goBtn) {
+                chatMessages.addEventListener('scroll', () => {
+                    if (isNearBottom(chatMessages)) {
+                        goBtn.style.display = 'none';
+                    } else {
+                        goBtn.style.display = '';
+                    }
+                });
+                goBtn.addEventListener('click', () => {
+                    try { chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); } catch (e) { chatMessages.scrollTop = chatMessages.scrollHeight; }
+                });
             }
             
-            // Continuous scroll monitoring to prevent messages from being hidden
-            setInterval(() => {
-                if (chatMessages && chatMessages.scrollHeight > chatMessages.clientHeight) {
-                    const distanceFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
-                    if (distanceFromBottom > 50) {
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }
-                }
-            }, 1000);
         });
 
         // Clean up when leaving the page
