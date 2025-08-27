@@ -240,6 +240,40 @@
             }
         }
     </script>
+    <script>
+        // Presence bulk polling for friends
+        document.addEventListener('DOMContentLoaded', function() {
+            const items = Array.from(document.querySelectorAll('.friend-item'));
+            const idMap = items.map(it => {
+                const link = it.querySelector('.friend-actions a[href*="/chat/"]');
+                if (!link) return null;
+                const m = link.getAttribute('href').match(/\/chat\/(\d+)/);
+                return m ? { el: it, id: parseInt(m[1]) } : null;
+            }).filter(Boolean);
+            async function pollPresence() {
+                if (idMap.length === 0) return;
+                const ids = idMap.map(x => x.id).join(',');
+                try {
+                    const res = await fetch(`/api/presence/bulk?ids=${encodeURIComponent(ids)}`);
+                    const data = await res.json();
+                    idMap.forEach(({ el, id }) => {
+                        const online = data[String(id)] && data[String(id)].online;
+                        const dot = el.querySelector('.online-dot');
+                        const label = el.querySelector('.friend-status');
+                        if (online) {
+                            if (dot) dot.style.display = '';
+                            if (label) label.innerHTML = '<span class="text-success">● Online</span>';
+                        } else {
+                            if (dot) dot.style.display = 'none';
+                            if (label) label.innerHTML = '<span class="text-muted">○ Offline</span>';
+                        }
+                    });
+                } catch (e) {}
+            }
+            pollPresence();
+            setInterval(pollPresence, 10000);
+        });
+    </script>
 </body>
 <script>
     (function(){
