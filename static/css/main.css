@@ -1541,3 +1541,111 @@ p {
 }
 /* Subtle separators */
 .setting-sep{height:1px;background:var(--border);margin:8px 0}
+
+/* Threads/Instagram-style settings sheet */
+.settings-sheet{max-width:720px;margin:0 auto;padding:0 16px}
+.settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;height:56px;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border)}
+.settings-title{font-size:1rem;font-weight:600;margin:0}
+.settings-list{list-style:none;margin:0;padding:8px 0}
+.settings-item{display:flex;align-items:center;gap:12px;padding:12px 0}
+.settings-item + .settings-item{border-top:1px solid var(--border)}
+.settings-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--gray-100);color:var(--black);flex-shrink:0}
+.settings-label{flex:0 0 40%;min-width:140px;color:var(--black);font-weight:500}
+.settings-control{flex:1;display:flex;align-items:center;gap:8px}
+.settings-control .form-control{border:1px solid var(--border);border-radius:12px;padding:10px;background:transparent}
+.settings-action{margin-left:auto}
+.settings-divider{height:8px}
+@media(min-width:768px){
+  .settings-control .form-control{padding:12px}
+  .settings-item{padding:14px 0}
+}
+/* Minimal buttons inside sheet */
+.btn-link-min{background:transparent;border:none;color:var(--black);padding:0}
+
+/* Settings footer (single save button) */
+.settings-footer{position:sticky;bottom:0;z-index:2;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:flex-end}
+.settings-footer .btn{min-width:110px}
+/* Softer inputs */
+.settings-control .form-control{background:var(--gray-50)}
+.settings-control .form-control:focus{border-color:var(--gray-300)}
+
+/* Avatar editor (Instagram-like) */
+.avatar-editor{display:flex;align-items:center;gap:14px}
+.avatar-preview{position:relative;width:96px;height:96px;border-radius:50%;overflow:hidden;background:var(--gray-100);flex-shrink:0}
+.avatar-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-edit-btn{position:absolute;right:4px;bottom:4px;width:32px;height:32px;border-radius:50%;border:none;background:var(--black);color:var(--white);display:flex;align-items:center;justify-content:center}
+.avatar-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);opacity:0;transition:.15s}
+.avatar-preview:hover .avatar-overlay{opacity:1}
+.avatar-actions{display:flex;gap:8px}
+@media(max-width:480px){.avatar-preview{width:80px;height:80px}}
+
+/* Avatar row centered */
+.avatar-row .settings-label{display:none}
+.avatar-row .settings-control{justify-content:center}
+/* Camera button overlay tweak */
+.avatar-edit-btn{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;border-radius:50%;border:2px solid var(--white);background:var(--black);color:var(--white);display:flex;align-items:center;justify-content:center;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.avatar-edit-btn i{font-size:.8rem;line-height:1}
+/* Avatar quick menu */
+.avatar-menu{position:absolute;top:100%;right:0;background:var(--white);color:var(--black);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);padding:6px;display:none;min-width:160px}
+.avatar-menu.show{display:block}
+.avatar-menu button{width:100%;text-align:left;border:none;background:transparent;padding:8px 10px;border-radius:8px}
+.avatar-menu button:hover{background:var(--gray-100)}
+
+/* Ensure overlay doesn't block clicks and menu sits above */
+.avatar-overlay{pointer-events:none}
+.avatar-menu{z-index:3}
+
+/* Anchor camera to avatar corner */
+.avatar-wrap{position:relative;width:96px;height:96px}
+.avatar-wrap .avatar-preview{width:100%;height:100%}
+.avatar-wrap .avatar-edit-btn{position:absolute;right:-1px;bottom:0}
+@media(max-width:480px){.avatar-wrap{width:80px;height:80px}}
+
+/* Ultra-clean rows: no borders, consistent spacing */
+.settings-list{border:none}
+.settings-item{border:none}
+.settings-item + .settings-item{border:none}
+
+/* Minimal rounded inputs in settings */
+.settings-control .form-control{background:var(--gray-100);border:1px solid var(--border);border-radius:14px;padding:12px 14px;font-size:16px;line-height:1.2;-webkit-appearance:none;appearance:none}
+.settings-control .form-control:focus{border-color:var(--gray-300);box-shadow:none}
+/* Tidy floating labels */
+.settings-control .form-floating>label{background:transparent;padding:0 8px;opacity:.7}
+.settings-control .form-floating>.form-control{height:auto;min-height:44px;padding:20px 14px 8px;border-radius:14px}
+/* Align label column with controls */
+.settings-label{align-self:center;margin-right:12px}
+.settings-item{align-items:center}
+/* Remove Chrome autofill white/yellow */
+input:-webkit-autofill, textarea:-webkit-autofill{box-shadow:0 0 0px 1000px var(--gray-100) inset !important;-webkit-text-fill-color:var(--black) !important;border-radius:14px}
+
+/* Align label column and inputs */
+.settings-item{display:flex;align-items:center}
+.settings-label{width:120px;min-width:120px;margin-right:16px;align-self:center}
+.settings-control{flex:1;display:flex;align-items:center;gap:10px}
+
+/* Kill Bootstrap floating-label white caps */
+.settings-control .form-floating>label{background:transparent !important;padding:0 6px;opacity:.7}
+.settings-control .form-floating>label::after{content:"";position:absolute;inset:0;background:transparent !important;border:none !important}
+.settings-control .form-floating>.form-control{height:auto;min-height:44px;padding:20px 14px 8px;border-radius:14px;background:var(--gray-100);border:1px solid var(--border)}
+
+/* Autofill background fix */
+.settings-control input:-webkit-autofill,
+.settings-control textarea:-webkit-autofill{box-shadow:0 0 0 1000px var(--gray-100) inset !important;-webkit-text-fill-color:var(--black) !important}
+
+/* Settings row as 2-column grid for perfect alignment */
+.settings-item{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center}
+.settings-label{width:auto;min-width:0;margin:0;justify-self:start}
+.settings-control{flex:initial;display:flex;align-items:center;gap:10px;width:100%}
+.settings-control .form-floating{width:100%}
+
+/* Location suggestions dropdown */
+#locationSuggestions{background:var(--white);color:var(--black);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);z-index:2000}
+#locationSuggestions .list-group-item, #locationSuggestions button{background:transparent;border:none;color:inherit;padding:10px 12px;text-align:left}
+#locationSuggestions .list-group-item:hover, #locationSuggestions button:hover{background:var(--gray-100)}
+/* Ensure sheet establishes stacking context */
+.settings-sheet{position:relative}
+
+/* Center the avatar row */
+.avatar-row{display:grid;grid-template-columns:1fr !important; justify-items:center}
+.avatar-row .settings-label{display:none}
+.avatar-row .settings-control{justify-content:center;width:auto}
