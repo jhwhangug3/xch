@@ -266,10 +266,13 @@
                 this.autoScrollTimeout = null; // timeout for auto-scroll to prevent interruption
                 this.isUserAtBottom = true; // Track if user is at bottom
                 this.lastMessageCount = 0; // Track message count changes
-                // Append-only rendering after first paint
-                this.hasInitialPaint = false;
-                this._appendScheduled = false;
-                this._appendBuffer = [];
+                // Virtualization window
+                this.renderWindowSize = 100; // render only last N messages
+                this.renderStartIndex = 0;
+                this.renderEndIndex = 0;
+                // Batched DOM updates
+                this._renderScheduled = false;
+                this._pendingScrollMode = null; // 'bottom' | 'preserve-delta' | null
                 
                 this.init();
             }
@@ -385,19 +388,8 @@
                     if (response.ok) {
                         const messages = await response.json();
                         this.messages = messages;
-                        // First paint: build entire list once
-                        const frag = document.createDocumentFragment();
-                        for (const m of this.messages) {
-                            const node = this.createMessageNode(m);
-                            frag.appendChild(node);
-                        }
-                        // Clear any placeholder content and append all
-                        this.chatMessages.innerHTML = '';
-                        this.chatMessages.appendChild(frag);
-                        // Re-attach stable UI elements
-                        const typingBar = document.getElementById('typingBar');
-                        if (typingBar) this.chatMessages.appendChild(typingBar);
-                        this.hasInitialPaint = true;
+                        this.updateRenderWindowToLatest();
+                        this.displayMessages();
                         
                         // Set last timestamp for incremental updates
                         if (messages.length > 0) {
@@ -434,9 +426,10 @@
                 // Add to pending messages
                 this.pendingMessages.set(tempMessage.id, tempMessage);
 
-                // Display message immediately (append-only)
+                // Display message immediately
                 this.messages.push(tempMessage);
-                this.enqueueAppend(tempMessage);
+                this.updateRenderWindowToLatest();
+                this.displayMessages();
                 
                 // Always scroll to bottom when user sends a message
                 this.scrollToBottom(true);
@@ -495,9 +488,8 @@
                                 this.pendingMessages.delete(this.messages[tempIndex].id);
                             }
                             
-                            // Update temp node id/status in place
-                            const node = this.chatMessages.querySelector(`[data-message-id="${this.messages[tempIndex].id}"]`);
-                            if (node) node.setAttribute('data-message-id', String(sentMessage.id));
+                            this.updateRenderWindowToLatest();
+                            this.displayMessages();
                         }
                     } catch (error) {
                         console.error('Error sending message:', error);
@@ -558,18 +550,14 @@
 
                         if (newMessages.length > 0) {
                             const atBottom = this.isNearBottom(80);
-                            // Add only truly new messages; append nodes only
-                            const frag = document.createDocumentFragment();
+                            // Add only truly new messages; render via batched update
                             for (const newMsg of newMessages) {
                                 if (!this.messages.some(msg => msg.id === newMsg.id)) {
                                     this.messages.push(newMsg);
-                                    const node = this.createMessageNode(newMsg);
-                                    frag.appendChild(node);
                                 }
                             }
-                            if (frag.childNodes.length > 0) {
-                                this.chatMessages.appendChild(frag);
-                            }
+                            this.updateRenderWindowToLatest();
+                            this.displayMessages();
                             
                             // Only auto-scroll for incoming messages if user is at bottom
                             // Never auto-scroll for outgoing messages or when user is reading history
@@ -634,79 +622,6 @@
                             ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
                         </div>`
                 };
-            }
-
-            createMessageNode(message) {
-                const isOwn = Number(message.sender_id) === Number(this.currentUserId);
-                const messageClass = isOwn ? 'message own' : 'message';
-                const utcDate = new Date(message.timestamp + 'Z');
-                const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                const isRead = Boolean(message.is_read);
-                const statusClass = isRead ? 'read' : 'unread';
-                const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
-                const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
-                const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
-
-                const wrapper = document.createElement('div');
-                wrapper.className = `${messageClass} ${messageStatus}`;
-                wrapper.setAttribute('data-message-id', String(message.id));
-
-                const info = document.createElement('div');
-                info.className = 'message-info';
-                info.innerHTML = `${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}`;
-
-                const content = document.createElement('div');
-                content.className = 'message-content';
-                if (message.message_type === 'image') {
-                    const img = document.createElement('img');
-                    img.src = message.content;
-                    img.alt = 'image';
-                    img.style.maxWidth = '260px';
-                    img.style.borderRadius = '12px';
-                    img.style.display = 'block';
-                    content.appendChild(img);
-                } else if (message.message_type === 'file') {
-                    const a = document.createElement('a');
-                    a.href = message.content;
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    a.textContent = (message.content || '').split('/').pop();
-                    content.appendChild(a);
-                } else {
-                    const span = document.createElement('span');
-                    span.innerHTML = this.linkify(message.content || '');
-                    content.appendChild(span);
-                }
-                if (isOwn) {
-                    const status = document.createElement('div');
-                    status.className = `message-status ${statusClass}`;
-                    status.title = isRead ? 'Read' : 'Sent';
-                    status.innerHTML = `<i class="${statusIcon}"></i>`;
-                    content.appendChild(status);
-                }
-
-                wrapper.appendChild(info);
-                wrapper.appendChild(content);
-                return wrapper;
-            }
-
-            enqueueAppend(message) {
-                this._appendBuffer.push(message);
-                if (this._appendScheduled) return;
-                this._appendScheduled = true;
-                window.requestAnimationFrame(() => {
-                    try {
-                        const frag = document.createDocumentFragment();
-                        for (const m of this._appendBuffer) {
-                            const node = this.createMessageNode(m);
-                            frag.appendChild(node);
-                        }
-                        this._appendBuffer.length = 0;
-                        this.chatMessages.appendChild(frag);
-                    } finally {
-                        this._appendScheduled = false;
-                    }
-                });
             }
 
             displayMessages() {
@@ -1225,4 +1140,3 @@
 })();
 </script>
 </html>
-
