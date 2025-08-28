@@ -394,7 +394,7 @@ p {
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--space-5);
-    padding-bottom: calc(var(--chat-input-h, 88px) + var(--typing-bar-h, 0px) + 60px);
+    padding-bottom: calc(var(--chat-input-h, 88px) + 90px);
     background: var(--gray-900);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -408,7 +408,7 @@ p {
     /* Ensure messages are always visible above input */
     box-sizing: border-box;
     /* Handle mobile keyboard and ensure proper spacing */
-    padding-bottom: calc(var(--chat-input-h, 88px) + var(--typing-bar-h, 0px) + env(safe-area-inset-bottom) + 60px);
+    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom) + 90px);
     /* Ensure messages are always visible above input bar */
     margin-bottom: 0;
     /* Ensure messages area adapts to mobile keyboard */
@@ -451,8 +451,8 @@ p {
 .chat-messages::after {
     content: '';
     display: block;
-    height: 75px;
-    min-height: 75px;
+    height: 90px;
+    min-height: 90px;
     width: 100%;
     /* Ensure this spacing is always visible */
     position: relative;
