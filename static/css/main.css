@@ -451,8 +451,8 @@ p {
 .chat-messages::after {
     content: '';
     display: block;
-    height: 60px;
-    min-height: 60px;
+    height: 75px;
+    min-height: 75px;
     width: 100%;
     /* Ensure this spacing is always visible */
     position: relative;
@@ -512,16 +512,47 @@ p {
 
 /* Typing indicators */
 .typing-indicator {
-    padding: var(--space-3) var(--space-4);
+    display: none; /* replaced by dedicated bar */
+}
+
+/* Dedicated typing bar at bottom of messages */
+.typing-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+    background: linear-gradient(to bottom, rgba(17,17,17,0), rgba(17,17,17,0.6));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1;
+}
+
+.typing-bubble {
     background: var(--gray-800);
-    border-radius: var(--radius-xl);
     border: 1px solid var(--gray-700);
-    margin-bottom: var(--space-4);
-    display: inline-block;
-    max-width: 70%;
-    /* Ensure typing indicator doesn't get hidden */
-    margin-bottom: var(--space-6);
-    color: var(--white);
+    border-radius: 16px;
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.typing-bubble .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    opacity: 0.6;
+    animation: typingBlink 1s infinite ease-in-out;
+}
+.typing-bubble .dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-bubble .dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typingBlink {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-2px); opacity: 1; }
 }
 
 .message-status.read {
