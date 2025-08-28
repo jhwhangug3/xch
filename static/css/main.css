@@ -994,7 +994,7 @@ p {
 
 /* Minimal presence dot on avatar */
 .profile-avatar{position:relative}
-.presence-dot{position:absolute;bottom:4px;right:4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--white);background:#9aa0a6;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+.presence-dot{position:absolute;bottom:6px;right:2px;width:16px;height:16px;border-radius:50%;border:3px solid var(--black);background:#9aa0a6;box-shadow:0 0 0 1px rgba(0,0,0,.25);pointer-events:none}
 .presence-dot.online{background:#22c55e}
 .presence-dot.offline{background:#9aa0a6}
 
@@ -1391,7 +1391,7 @@ p {
 [data-theme="dark"] .card{background:var(--gray-50);border:1px solid var(--border)}
 [data-theme="dark"] .dashboard-content, [data-theme="dark"] .profile-container, [data-theme="dark"] .chat-container{background:transparent}
 /* Make sticky header match dark background */
-.pf-header{background:rgba(0,0,0,0.85)!important;border-bottom:1px solid var(--gray-800)!important}
+.pf-header{background:var(--black)!important;border-bottom:none!important;box-shadow:none!important}
 /* Ensure section surfaces have adequate contrast when used */
 .pf-friend{background:#151515}
 .pf-friend:hover{background:#1b1b1b}
@@ -1475,25 +1475,43 @@ p {
 }
 
 /* Minimalist profile layout */
-.pf-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:16px;backdrop-filter:saturate(180%) blur(8px);background:rgba(255,255,255,0.8);border-bottom:1px solid rgba(0,0,0,0.05)}
-.pf-back{color:inherit;text-decoration:none;font-size:18px}
-.pf-avatar{width:64px;height:64px;border-radius:50%;overflow:hidden;background:#eee;display:flex;align-items:center;justify-content:center}
+.pf-header{position:sticky;top:0;z-index:10;display:block;padding:0 0 8px;backdrop-filter:saturate(180%) blur(8px);background:var(--black)}
+.pf-topbar{display:flex;align-items:center;justify-content:space-between;height:48px;padding:8px 12px;border-bottom:1px solid var(--gray-900)}
+.pf-topbar .pf-back{color:#cfcfcf;text-decoration:none;font-size:18px}
+.pf-back{color:#cfcfcf;text-decoration:none;font-size:18px}
+.pf-header-main{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.pf-kebab{margin-left:auto;border:none;background:transparent;color:#cfcfcf;font-size:18px;padding:6px;border-radius:8px}
+.pf-kebab:hover{background:var(--gray-900);color:#fff}
+.pf-avatar-wrap{position:relative;width:72px;height:72px}
+.pf-avatar{width:72px;height:72px;border-radius:50%;overflow:hidden;background:#1a1a1a;display:flex;align-items:center;justify-content:center}
 .pf-avatar img{width:100%;height:100%;object-fit:cover}
-.pf-meta{flex:1}
-.pf-name{font-size:20px;line-height:1.2;margin:0}
-.pf-username{color:#6c757d;font-size:14px}
+.pf-meta{flex:1;min-width:0}
+.pf-name{font-size:18px;line-height:1.2;margin:0;font-weight:700}
+.pf-name-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pf-dot{opacity:.5}
+.pf-username{color:#a0a0a0;font-size:14px;margin:0}
+.pf-friends-link{border:none;background:transparent;color:#a0a0a0;font-size:14px;padding:0}
+.pf-friends-link:hover{color:#ffffff}
+.pf-bio-inline{margin-top:4px}
+.pf-bio-inline .pf-text{font-size:14px;color:#e6e6e6}
+.pf-bio-inline .pf-text .pf-mention{color:inherit;font-weight:700;text-decoration:none;border-bottom:0}
+.pf-bio-inline .pf-text .pf-mention:hover{text-decoration:none}
+.pf-link-inline{margin-top:4px}
+.pf-website{font-size:12px;color:#a5c9ff;text-decoration:none}
+.pf-website:hover{text-decoration:underline}
 .pf-presence{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;margin-top:6px;background:#e9ecef}
 .pf-presence.online{background:#d1f7e0;color:#0a7a33}
 .pf-presence.offline{background:#f0f0f0;color:#6c757d}
 .pf-actions{margin-left:auto}
-.pf-main{padding:16px}
+.pf-main{padding:12px 16px 16px}
 .pf-section{margin:16px 0}
 .pf-label{font-size:12px;color:#6c757d;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
 .pf-text{font-size:15px;white-space:pre-wrap}
 .pf-links{display:flex;flex-wrap:wrap;gap:8px}
 .pf-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#1f1f1f;text-decoration:none;color:#fff;font-size:13px}
 .pf-chip:hover{background:#222}
-.pf-local{display:grid;grid-template-columns:1fr;gap:6px;color:#333}
+.pf-local{display:grid;grid-template-columns:1fr;gap:6px;color:#bfbfbf}
+.pf-local-row{display:flex;align-items:center;gap:6px}
 .pf-friends{display:flex;flex-wrap:wrap;gap:10px}
 .pf-friend{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;padding:6px 8px;border-radius:8px;background:#f9f9f9}
 .pf-friend img{width:28px;height:28px;border-radius:50%;object-fit:cover}
@@ -1501,11 +1519,25 @@ p {
 @media(min-width:768px){.pf-main{padding:24px 32px}}
 
 /* Threads-like inline actions under header */
-.pf-actions-inline{display:flex;gap:8px;align-items:center;margin:8px 0 16px}
+.pf-actions-inline{display:flex;gap:8px;align-items:center;margin:12px 0 16px}
 .pf-actions-inline .pf-btn{border-radius:999px;padding:6px 14px;font-weight:600;border:1px solid var(--gray-700);background:var(--gray-900);color:var(--white)}
 .pf-actions-inline .pf-btn:hover{background:var(--gray-800)}
 .pf-actions-inline .pf-btn i{font-size:.85em}
 @media(max-width:480px){.pf-actions-inline{gap:6px}.pf-actions-inline .pf-btn{padding:6px 12px;font-size:.85rem}}
+
+/* Bottom sheet for friends (mobile-first) */
+.pf-bottom-sheet{position:fixed;inset:0;z-index:1100;display:none}
+.pf-bottom-sheet.show{display:block}
+.pf-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(2px)}
+.pf-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--black);border-top-left-radius:16px;border-top-right-radius:16px;border:1px solid var(--gray-800);max-height:70vh;display:flex;flex-direction:column;animation:sheetIn .18s ease-out}
+.pf-sheet-handle{width:44px;height:5px;border-radius:999px;background:var(--gray-800);margin:8px auto}
+.pf-sheet-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--gray-800)}
+.pf-sheet-body{padding:8px 12px;overflow:auto}
+.pf-menu-row{display:flex;align-items:center;gap:8px;color:#cfcfcf;margin-bottom:8px}
+.pf-friend-row{padding:8px 6px;background:transparent;border:1px solid transparent}
+.pf-friend-row:hover{background:var(--gray-900);border-color:var(--gray-800)}
+.pf-friend-meta{display:flex;flex-direction:column;line-height:1}
+@keyframes sheetIn{from{transform:translateY(12px);opacity:.9}to{transform:translateY(0);opacity:1}}
 
 /* Direct chat header actions */
 .header-actions-right{margin-left:auto; margin-right:0;}
