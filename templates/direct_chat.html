@@ -61,7 +61,6 @@
                         <button id="goToBottomBtn" type="button" class="btn btn-secondary btn-sm position-fixed" style="right:16px; bottom: calc(var(--chat-input-h, 88px) + 16px); display:none; z-index: 1003; border-radius:999px; padding:6px 10px;">
                             <i class="fas fa-arrow-down"></i>
                         </button>
-                        <div id="typingBar" class="typing-bar" aria-live="polite" aria-atomic="true" style="display:none;"></div>
                     </div>
 
                     <!-- Chat Input -->
@@ -519,16 +518,27 @@
                             const payload = JSON.parse(evt.data);
                             if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
                                 this.otherIsTypingUntil = Date.now() + 2000;
-                                const bar = document.getElementById('typingBar');
-                                if (bar) {
-                                    bar.style.display = '';
-                                    bar.innerHTML = `<div class="typing-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
-                                    if (this.isUserAtBottom) this.scrollToBottom(true);
+                                const existing = document.querySelector('.typing-indicator');
+                                if (!existing) {
+                                    const typingIndicator = document.createElement('div');
+                                    typingIndicator.className = 'typing-indicator';
+                                    typingIndicator.innerHTML = `
+                                        <small class="text-muted">
+                                            <i class="fas fa-pencil-alt me-1"></i>
+                                            ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                        </small>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    
+                                    // Only scroll for typing indicator if user is at bottom
+                                    // This prevents interrupting user when they're reading history
+                                    if (this.isUserAtBottom) {
+                                        this.scrollToBottom(true);
+                                    }
                                 }
                                 clearTimeout(this.wsTypingTimeout);
                                 this.wsTypingTimeout = setTimeout(() => {
-                                    const barEnd = document.getElementById('typingBar');
-                                    if (barEnd) barEnd.style.display = 'none';
+                                    const ex = document.querySelector('.typing-indicator');
+                                    if (ex) ex.remove();
                                 }, 2200);
                             }
                         } catch (_) {}
@@ -707,11 +717,9 @@
                     }
 
                     const typingExisting = document.querySelector('.typing-indicator');
-                    const typingBar = document.getElementById('typingBar');
                     cm.innerHTML = '';
                     cm.appendChild(fragment);
                     if (typingExisting) cm.appendChild(typingExisting);
-                    if (typingBar) cm.appendChild(typingBar);
                     if (goBtn) cm.appendChild(goBtn);
 
                     if (mode === 'bottom') {
@@ -750,17 +758,28 @@
                     const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
                     if (!res.ok) return;
                     const data = await res.json();
-                    const bar = document.getElementById('typingBar');
+                    const existing = document.querySelector('.typing-indicator');
                     if (data.is_typing) {
                         this.otherIsTypingUntil = Date.now() + 2000;
-                        if (bar) {
-                            bar.style.display = '';
-                            bar.innerHTML = `<div class="typing-bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
-                            if (this.isUserAtBottom) this.scrollToBottom(true);
+                        if (!existing) {
+                            const typingIndicator = document.createElement('div');
+                            typingIndicator.className = 'typing-indicator';
+                            typingIndicator.innerHTML = `
+                                <small class="text-muted">
+                                    <i class="fas fa-pencil-alt me-1"></i>
+                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                </small>`;
+                            this.chatMessages.appendChild(typingIndicator);
+                            
+                            // Only scroll for typing if user is at bottom
+                            // This prevents interrupting user when they're reading history
+                            if (this.isUserAtBottom) {
+                                this.scrollToBottom(true);
+                            }
                         }
                     } else {
                         // keep indicator a bit to avoid flicker
-                        if (bar && Date.now() > this.otherIsTypingUntil) bar.style.display = 'none';
+                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
                     }
                 } catch (e) {}
             }
