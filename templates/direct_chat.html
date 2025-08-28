@@ -61,7 +61,6 @@
                         <button id="goToBottomBtn" type="button" class="btn btn-secondary btn-sm position-fixed" style="right:16px; bottom: calc(var(--chat-input-h, 88px) + 16px); display:none; z-index: 1003; border-radius:999px; padding:6px 10px;">
                             <i class="fas fa-arrow-down"></i>
                         </button>
-                        <div id="typingBar" class="typing-bar" aria-live="polite" aria-atomic="true" style="display:none;"></div>
                     </div>
 
                     <!-- Chat Input -->
@@ -136,11 +135,6 @@
             const h = bar.getBoundingClientRect().height;
             document.documentElement.style.setProperty('--chat-header-h', h + 'px');
         }
-        function setTypingBarHeight() {
-            const bar = document.getElementById('typingBar');
-            const h = bar && bar.offsetParent !== null ? bar.getBoundingClientRect().height : 0;
-            document.documentElement.style.setProperty('--typing-bar-h', (h || 0) + 'px');
-        }
         // Web Push helpers
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -185,9 +179,6 @@
         window.addEventListener('resize', setChatHeaderHeight);
         window.addEventListener('orientationchange', setChatHeaderHeight);
         document.addEventListener('DOMContentLoaded', setChatHeaderHeight);
-        window.addEventListener('resize', setTypingBarHeight);
-        window.addEventListener('orientationchange', setTypingBarHeight);
-        document.addEventListener('DOMContentLoaded', setTypingBarHeight);
         document.addEventListener('DOMContentLoaded', ensurePush);
         // Clear chat action
         document.addEventListener('DOMContentLoaded', () => {
@@ -274,10 +265,6 @@
                 this.autoScrollTimeout = null; // timeout for auto-scroll to prevent interruption
                 this.isUserAtBottom = true; // Track if user is at bottom
                 this.lastMessageCount = 0; // Track message count changes
-                // Append-only rendering after first paint
-                this.hasInitialPaint = false;
-                this._appendScheduled = false;
-                this._appendBuffer = [];
                 
                 this.init();
             }
@@ -379,11 +366,6 @@
                         clearTimeout(this.autoScrollTimeout);
                         this.autoScrollTimeout = null;
                     }
-
-                    // Near top: expand window upwards to lazy-load older messages
-                    if (scrollTop <= 40) {
-                        this.expandOlderWindow();
-                    }
                 });
             }
 
@@ -393,19 +375,7 @@
                     if (response.ok) {
                         const messages = await response.json();
                         this.messages = messages;
-                        // First paint: build entire list once
-                        const frag = document.createDocumentFragment();
-                        for (const m of this.messages) {
-                            const node = this.createMessageNode(m);
-                            frag.appendChild(node);
-                        }
-                        // Clear any placeholder content and append all
-                        this.chatMessages.innerHTML = '';
-                        this.chatMessages.appendChild(frag);
-                        // Re-attach stable UI elements
-                        const typingBar = document.getElementById('typingBar');
-                        if (typingBar) this.chatMessages.appendChild(typingBar);
-                        this.hasInitialPaint = true;
+                        this.displayMessages();
                         
                         // Set last timestamp for incremental updates
                         if (messages.length > 0) {
@@ -442,9 +412,9 @@
                 // Add to pending messages
                 this.pendingMessages.set(tempMessage.id, tempMessage);
 
-                // Display message immediately (append-only)
+                // Display message immediately
                 this.messages.push(tempMessage);
-                this.enqueueAppend(tempMessage);
+                this.displayMessages();
                 
                 // Always scroll to bottom when user sends a message
                 this.scrollToBottom(true);
@@ -503,9 +473,7 @@
                                 this.pendingMessages.delete(this.messages[tempIndex].id);
                             }
                             
-                            // Update temp node id/status in place
-                            const node = this.chatMessages.querySelector(`[data-message-id="${this.messages[tempIndex].id}"]`);
-                            if (node) node.setAttribute('data-message-id', String(sentMessage.id));
+                            this.displayMessages();
                         }
                     } catch (error) {
                         console.error('Error sending message:', error);
@@ -535,17 +503,27 @@
                             const payload = JSON.parse(evt.data);
                             if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
                                 this.otherIsTypingUntil = Date.now() + 2000;
-                                const bar = document.getElementById('typingBar');
-                                if (bar) {
-                                    bar.style.display = '';
-                                    bar.innerHTML = `<div class=\"typing-bubble\"><span class=\"dot\"></span><span class=\"dot\"></span><span class=\"dot\"></span></div>`;
-                                    try { setTypingBarHeight(); } catch (_) {}
-                                    if (this.isUserAtBottom) this.scrollToBottom(true);
+                                const existing = document.querySelector('.typing-indicator');
+                                if (!existing) {
+                                    const typingIndicator = document.createElement('div');
+                                    typingIndicator.className = 'typing-indicator';
+                                    typingIndicator.innerHTML = `
+                                        <small class="text-muted">
+                                            <i class="fas fa-pencil-alt me-1"></i>
+                                            ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                        </small>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    
+                                    // Only scroll for typing indicator if user is at bottom
+                                    // This prevents interrupting user when they're reading history
+                                    if (this.isUserAtBottom) {
+                                        this.scrollToBottom(true);
+                                    }
                                 }
                                 clearTimeout(this.wsTypingTimeout);
                                 this.wsTypingTimeout = setTimeout(() => {
-                                    const barEnd = document.getElementById('typingBar');
-                                    if (barEnd) { barEnd.style.display = 'none'; try { setTypingBarHeight(); } catch (_) {} }
+                                    const ex = document.querySelector('.typing-indicator');
+                                    if (ex) ex.remove();
                                 }, 2200);
                             }
                         } catch (_) {}
@@ -567,17 +545,29 @@
 
                         if (newMessages.length > 0) {
                             const atBottom = this.isNearBottom(80);
-                            // Add only truly new messages; append nodes only
-                            const frag = document.createDocumentFragment();
+                            // Add only truly new messages and append to DOM incrementally
                             for (const newMsg of newMessages) {
                                 if (!this.messages.some(msg => msg.id === newMsg.id)) {
                                     this.messages.push(newMsg);
-                                    const node = this.createMessageNode(newMsg);
-                                    frag.appendChild(node);
+                                    // Append DOM for this message only to avoid flicker
+                                    const isOwn = Number(newMsg.sender_id) === Number(this.currentUserId);
+                                    const cls = isOwn ? 'message own' : 'message';
+                                    const utcDate = new Date(newMsg.timestamp + 'Z');
+                                    const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                                    const isRead = Boolean(newMsg.is_read);
+                                    const icon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                                    const text = isRead ? 'Read' : 'Sent';
+                                    const tempInd = newMsg.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+                                    const content = (newMsg.message_type === 'image')
+                                        ? `<img src="${newMsg.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>`
+                                        : (newMsg.message_type === 'file' ? `<a href="${newMsg.content}" target="_blank" rel="noopener">${(newMsg.content || '').split('/').pop()}</a>` : this.linkify(newMsg.content || ''));
+                                    const html = `
+                                        <div class="${cls} ${newMsg.is_temp ? 'message-sending' : 'message-sent'}" data-message-id="${newMsg.id}">
+                                            <div class="message-info">${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempInd}</div>
+                                            <div class="message-content">${content}${isOwn ? `<div class="message-status ${isRead ? 'read' : 'unread'}"><i class="${icon}"></i> ${text}</div>` : ''}</div>
+                                        </div>`;
+                                    this.chatMessages.insertAdjacentHTML('beforeend', html);
                                 }
-                            }
-                            if (frag.childNodes.length > 0) {
-                                this.chatMessages.appendChild(frag);
                             }
                             
                             // Only auto-scroll for incoming messages if user is at bottom
@@ -645,198 +635,48 @@
                 };
             }
 
-            createMessageNode(message) {
-                const isOwn = Number(message.sender_id) === Number(this.currentUserId);
-                const messageClass = isOwn ? 'message own' : 'message';
-                const utcDate = new Date(message.timestamp + 'Z');
-                const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                const isRead = Boolean(message.is_read);
-                const statusClass = isRead ? 'read' : 'unread';
-                const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
-                const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
-                const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
-
-                const wrapper = document.createElement('div');
-                wrapper.className = `${messageClass} ${messageStatus}`;
-                wrapper.setAttribute('data-message-id', String(message.id));
-
-                const info = document.createElement('div');
-                info.className = 'message-info';
-                info.innerHTML = `${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}`;
-
-                const content = document.createElement('div');
-                content.className = 'message-content';
-                if (message.message_type === 'image') {
-                    const img = document.createElement('img');
-                    img.src = message.content;
-                    img.alt = 'image';
-                    img.style.maxWidth = '260px';
-                    img.style.borderRadius = '12px';
-                    img.style.display = 'block';
-                    content.appendChild(img);
-                } else if (message.message_type === 'file') {
-                    const a = document.createElement('a');
-                    a.href = message.content;
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    a.textContent = (message.content || '').split('/').pop();
-                    content.appendChild(a);
-                } else {
-                    const span = document.createElement('span');
-                    span.innerHTML = this.linkify(message.content || '');
-                    content.appendChild(span);
-                }
-                if (isOwn) {
-                    const status = document.createElement('div');
-                    status.className = `message-status ${statusClass}`;
-                    status.title = isRead ? 'Read' : 'Sent';
-                    status.innerHTML = `<i class="${statusIcon}"></i>`;
-                    content.appendChild(status);
-                }
-
-                wrapper.appendChild(info);
-                wrapper.appendChild(content);
-                return wrapper;
-            }
-
-            enqueueAppend(message) {
-                this._appendBuffer.push(message);
-                if (this._appendScheduled) return;
-                this._appendScheduled = true;
-                window.requestAnimationFrame(() => {
-                    try {
-                        const frag = document.createDocumentFragment();
-                        for (const m of this._appendBuffer) {
-                            const node = this.createMessageNode(m);
-                            frag.appendChild(node);
-                        }
-                        this._appendBuffer.length = 0;
-                        this.chatMessages.appendChild(frag);
-                    } finally {
-                        this._appendScheduled = false;
-                    }
-                });
-            }
-
             displayMessages() {
-                // Batch DOM writes per frame using a DocumentFragment
-                if (this._renderScheduled) return;
-                this._renderScheduled = true;
-                const cm = this.chatMessages;
-                const prevScrollHeight = cm.scrollHeight;
-                const prevScrollTop = cm.scrollTop;
-                const mode = this._pendingScrollMode;
-                this._pendingScrollMode = null;
+                if (this.messages.length === 0) {
+                    this.chatMessages.innerHTML = `
+                        <div class="text-center text-muted mt-4">
+                            <i class="fas fa-comments fa-2x mb-2"></i>
+                            <p>Start your conversation with ${this.otherUser}!</p>
+                        </div>
+                    `;
+                    return;
+                }
 
-                window.requestAnimationFrame(() => {
-                    if (this.messages.length === 0) {
-                        cm.innerHTML = `
-                            <div class="text-center text-muted mt-4">
-                                <i class="fas fa-comments fa-2x mb-2"></i>
-                                <p>Start your conversation with ${this.otherUser}!</p>
+                const typingExisting = document.querySelector('.typing-indicator');
+                const typingHTML = typingExisting ? typingExisting.outerHTML : '';
+                this.chatMessages.innerHTML = this.messages.map(message => {
+                    const isOwn = message.sender_id === this.currentUserId;
+                    const messageClass = isOwn ? 'message own' : 'message';
+                    const utcDate = new Date(message.timestamp + 'Z');
+                    const time = utcDate.toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true
+                    });
+
+                    const isRead = Boolean(message.is_read);
+                    const statusClass = isRead ? 'read' : 'unread';
+                    const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+
+                    const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
+                    const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+
+                    return `
+                        <div class="${messageClass} ${messageStatus}" data-message-id="${message.id}">
+                            <div class="message-info">
+                                ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
                             </div>
-                        `;
-                        this._renderScheduled = false;
-                        return;
-                    }
-
-                    const fragment = document.createDocumentFragment();
-                    // Preserve floating go-to-bottom button if it lives inside the container
-                    const goBtn = document.getElementById('goToBottomBtn');
-                    const start = Math.max(0, this.renderStartIndex);
-                    const end = Math.max(start, Math.min(this.messages.length, this.renderEndIndex));
-                    for (let i = start; i < end; i++) {
-                        const message = this.messages[i];
-                        const isOwn = message.sender_id === this.currentUserId;
-                        const messageClass = isOwn ? 'message own' : 'message';
-                        const utcDate = new Date(message.timestamp + 'Z');
-                        const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                        const isRead = Boolean(message.is_read);
-                        const statusClass = isRead ? 'read' : 'unread';
-                        const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
-                        const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
-                        const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
-
-                        const wrapper = document.createElement('div');
-                        wrapper.className = `${messageClass} ${messageStatus}`;
-                        wrapper.setAttribute('data-message-id', message.id);
-
-                        const info = document.createElement('div');
-                        info.className = 'message-info';
-                        info.innerHTML = `${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}`;
-
-                        const content = document.createElement('div');
-                        content.className = 'message-content';
-                        if (message.message_type === 'image') {
-                            const img = document.createElement('img');
-                            img.src = message.content;
-                            img.alt = 'image';
-                            img.style.maxWidth = '260px';
-                            img.style.borderRadius = '12px';
-                            img.style.display = 'block';
-                            content.appendChild(img);
-                        } else if (message.message_type === 'file') {
-                            const a = document.createElement('a');
-                            a.href = message.content;
-                            a.target = '_blank';
-                            a.rel = 'noopener';
-                            a.textContent = (message.content || '').split('/').pop();
-                            content.appendChild(a);
-                        } else {
-                            const span = document.createElement('span');
-                            span.innerHTML = this.linkify(message.content || '');
-                            content.appendChild(span);
-                        }
-                        if (isOwn) {
-                            const status = document.createElement('div');
-                            status.className = `message-status ${statusClass}`;
-                            status.title = isRead ? 'Read' : 'Sent';
-                            status.innerHTML = `<i class="${statusIcon}"></i>`;
-                            content.appendChild(status);
-                        }
-
-                        wrapper.appendChild(info);
-                        wrapper.appendChild(content);
-                        fragment.appendChild(wrapper);
-                    }
-
-                    const typingExisting = document.querySelector('.typing-indicator');
-                    const typingBar = document.getElementById('typingBar');
-                    cm.innerHTML = '';
-                    cm.appendChild(fragment);
-                    if (typingExisting) cm.appendChild(typingExisting);
-                    if (typingBar) cm.appendChild(typingBar);
-                    if (goBtn) cm.appendChild(goBtn);
-
-                    if (mode === 'bottom') {
-                        this.scrollToBottom(true);
-                    } else if (mode === 'preserve-delta') {
-                        try {
-                            const newScrollHeight = cm.scrollHeight;
-                            const delta = newScrollHeight - prevScrollHeight;
-                            cm.scrollTop = prevScrollTop + delta;
-                        } catch (_) {}
-                    }
-
-                    this._renderScheduled = false;
-                });
-            }
-
-            updateRenderWindowToLatest() {
-                const total = this.messages.length;
-                this.renderEndIndex = total;
-                this.renderStartIndex = Math.max(0, total - this.renderWindowSize);
-                this._pendingScrollMode = 'bottom';
-            }
-
-            expandOlderWindow(chunk = 50) {
-                if (this.renderStartIndex <= 0) return;
-                const prevStart = this.renderStartIndex;
-                this.renderStartIndex = Math.max(0, this.renderStartIndex - chunk);
-                // Keep end index as-is (window grows upward)
-                this.renderEndIndex = Math.max(this.renderEndIndex, prevStart + (this.renderEndIndex - prevStart));
-                this._pendingScrollMode = 'preserve-delta';
-                this.displayMessages();
+                            <div class="message-content">
+                                ${message.message_type === 'image' ? `<img src="${message.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>` : (message.message_type === 'file' ? `<a href="${message.content}" target="_blank" rel="noopener">${message.content.split('/').pop()}</a>` : this.linkify(message.content))}
+                                ${isOwn ? `<div class="message-status ${statusClass}" title="${isRead ? 'Read' : 'Sent'}"><i class="${statusIcon}"></i></div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('') + typingHTML;
             }
 
             async pollTyping() {
@@ -844,18 +684,28 @@
                     const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
                     if (!res.ok) return;
                     const data = await res.json();
-                    const bar = document.getElementById('typingBar');
+                    const existing = document.querySelector('.typing-indicator');
                     if (data.is_typing) {
                         this.otherIsTypingUntil = Date.now() + 2000;
-                        if (bar) {
-                            bar.style.display = '';
-                            bar.innerHTML = `<div class=\"typing-bubble\"><span class=\"dot\"></span><span class=\"dot\"></span><span class=\"dot\"></span></div>`;
-                            try { setTypingBarHeight(); } catch (_) {}
-                            if (this.isUserAtBottom) this.scrollToBottom(true);
+                        if (!existing) {
+                            const typingIndicator = document.createElement('div');
+                            typingIndicator.className = 'typing-indicator';
+                            typingIndicator.innerHTML = `
+                                <small class="text-muted">
+                                    <i class="fas fa-pencil-alt me-1"></i>
+                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
+                                </small>`;
+                            this.chatMessages.appendChild(typingIndicator);
+                            
+                            // Only scroll for typing if user is at bottom
+                            // This prevents interrupting user when they're reading history
+                            if (this.isUserAtBottom) {
+                                this.scrollToBottom(true);
+                            }
                         }
                     } else {
                         // keep indicator a bit to avoid flicker
-                        if (bar && Date.now() > this.otherIsTypingUntil) { bar.style.display = 'none'; try { setTypingBarHeight(); } catch (_) {} }
+                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
                     }
                 } catch (e) {}
             }
@@ -1084,7 +934,6 @@
                     is_temp: true
                 };
                 window.ultraFastChatApp.messages.push(temp);
-                window.ultraFastChatApp.updateRenderWindowToLatest();
                 window.ultraFastChatApp.displayMessages();
                 window.ultraFastChatApp.scrollToBottom(true);
             } catch (e) {
@@ -1235,4 +1084,3 @@
 })();
 </script>
 </html>
-
