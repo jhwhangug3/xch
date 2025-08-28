@@ -16,22 +16,16 @@
                 <img src="{{ url_for('static', filename='images/nav.png') }}" alt="meowCHAT"/>
             </a>
             <div class="actions position-relative">
-                <button id="navAvatarBtn" class="avatar-btn" type="button">
+                <a class="avatar-btn" href="{{ get_profile_url(user) }}">
                     {% if user.profile_picture %}
                         <img src="{{ user.profile_picture }}" alt=""/>
                     {% else %}
                         <img src="https://ui-avatars.com/api/?name={{ user.username }}" alt=""/>
                     {% endif %}
-                </button>
+                </a>
             </div>
         </div>
-        <div class="panel" id="navPanel">
-            <div class="content">
-                <a class="link" href="{{ url_for('dashboard') }}"><i class="fas fa-home me-2"></i>Dashboard</a>
-                <a class="link" href="{{ get_profile_url(user) }}"><i class="fas fa-user me-2"></i>Profile</a>
-                <a class="link text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
-            </div>
-        </div>
+        
     </nav>
     <div class="dashboard-content">
         <div class="dashboard-inner">
@@ -257,22 +251,5 @@
         });
     </script>
 </body>
-<script>
-    (function(){
-        document.addEventListener('DOMContentLoaded', function(){
-            const btn = document.getElementById('navAvatarBtn');
-            const nav = document.getElementById('topNav');
-            const panel = document.getElementById('navPanel');
-            if (!btn || !nav || !panel) return;
-            btn.addEventListener('click', function(){
-                nav.classList.toggle('expanded');
-            });
-            document.addEventListener('click', function(e){
-                if (!nav.contains(e.target) || e.target.closest('a.link')) {
-                    nav.classList.remove('expanded');
-                }
-            });
-        });
-    })();
-</script>
+<script></script>
 </html>
