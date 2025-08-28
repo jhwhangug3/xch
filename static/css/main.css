@@ -394,7 +394,7 @@ p {
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--space-5);
-    padding-bottom: 140px; /* Increased padding to ensure messages are above input bar */
+    padding-bottom: calc(var(--chat-input-h, 88px) + 60px);
     background: var(--gray-900);
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -408,7 +408,7 @@ p {
     /* Ensure messages are always visible above input */
     box-sizing: border-box;
     /* Handle mobile keyboard and ensure proper spacing */
-    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--chat-input-h, 88px) + env(safe-area-inset-bottom) + 60px);
     /* Ensure messages are always visible above input bar */
     margin-bottom: 0;
     /* Ensure messages area adapts to mobile keyboard */
@@ -438,21 +438,21 @@ p {
 .message:last-child::after {
     content: '';
     display: block;
-    height: 120px;
-    min-height: 120px;
+    height: 0;
+    min-height: 0;
 }
 
 /* Force bottom spacing for all messages */
 .chat-messages > *:last-child {
-    margin-bottom: 120px !important;
+    margin-bottom: 0 !important;
 }
 
 /* Guaranteed bottom spacing - prevents messages from being hidden */
 .chat-messages::after {
     content: '';
     display: block;
-    height: 140px;
-    min-height: 140px;
+    height: 60px;
+    min-height: 60px;
     width: 100%;
     /* Ensure this spacing is always visible */
     position: relative;
