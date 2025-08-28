@@ -544,19 +544,36 @@
                         const readIdsSide = Array.isArray(payload.read_ids) ? payload.read_ids : [];
 
                         if (newMessages.length > 0) {
-                            // Add only truly new messages
+                            const atBottom = this.isNearBottom(80);
+                            // Add only truly new messages and append to DOM incrementally
                             for (const newMsg of newMessages) {
                                 if (!this.messages.some(msg => msg.id === newMsg.id)) {
                                     this.messages.push(newMsg);
+                                    // Append DOM for this message only to avoid flicker
+                                    const isOwn = Number(newMsg.sender_id) === Number(this.currentUserId);
+                                    const cls = isOwn ? 'message own' : 'message';
+                                    const utcDate = new Date(newMsg.timestamp + 'Z');
+                                    const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                                    const isRead = Boolean(newMsg.is_read);
+                                    const icon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                                    const text = isRead ? 'Read' : 'Sent';
+                                    const tempInd = newMsg.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+                                    const content = (newMsg.message_type === 'image')
+                                        ? `<img src="${newMsg.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>`
+                                        : (newMsg.message_type === 'file' ? `<a href="${newMsg.content}" target="_blank" rel="noopener">${(newMsg.content || '').split('/').pop()}</a>` : this.linkify(newMsg.content || ''));
+                                    const html = `
+                                        <div class="${cls} ${newMsg.is_temp ? 'message-sending' : 'message-sent'}" data-message-id="${newMsg.id}">
+                                            <div class="message-info">${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempInd}</div>
+                                            <div class="message-content">${content}${isOwn ? `<div class="message-status ${isRead ? 'read' : 'unread'}"><i class="${icon}"></i> ${text}</div>` : ''}</div>
+                                        </div>`;
+                                    this.chatMessages.insertAdjacentHTML('beforeend', html);
                                 }
                             }
-                            
-                            this.displayMessages();
                             
                             // Only auto-scroll for incoming messages if user is at bottom
                             // Never auto-scroll for outgoing messages or when user is reading history
                             const incomingMessages = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
-                            if (incomingMessages.length > 0 && this.isUserAtBottom) {
+                            if (incomingMessages.length > 0 && atBottom) {
                                 this.scrollToBottom(true);
                             }
                             
@@ -571,25 +588,51 @@
                             this.lastMessageCount = this.messages.length;
                         }
 
-                        // Process read receipts without causing scrolling
+                        // Process read receipts without causing scrolling (no full re-render)
                         if (readIdsSide.length > 0) {
-                            let needsUpdate = false;
                             for (const id of readIdsSide) {
                                 const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
-                                if (idx !== -1 && !this.messages[idx].is_read) {
-                                    this.messages[idx].is_read = true;
-                                    needsUpdate = true;
+                                if (idx !== -1) this.messages[idx].is_read = true;
+                                const node = this.chatMessages.querySelector(`[data-message-id="${id}"] .message-status`);
+                                if (node && !node.classList.contains('read')) {
+                                    node.classList.remove('unread');
+                                    node.classList.add('read');
+                                    node.innerHTML = '<i class="fas fa-check-double"></i> Read';
                                 }
-                            }
-                            // Only update UI if read status actually changed
-                            if (needsUpdate) {
-                                this.displayMessages();
                             }
                         }
                     }
                 } catch (error) {
                     console.error('Error checking for new messages:', error);
                 }
+            }
+
+            renderMessageHTML(message) {
+                const isOwn = message.sender_id === this.currentUserId;
+                const messageClass = isOwn ? 'message own' : 'message';
+                const utcDate = new Date(message.timestamp + 'Z');
+                const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                const isRead = Boolean(message.is_read);
+                const statusClass = isRead ? 'read' : 'unread';
+                const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                const statusText = isRead ? 'Read' : 'Sent';
+                const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+                const contentHTML = (message.message_type === 'image')
+                    ? `<img src="${message.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>`
+                    : (message.message_type === 'file'
+                        ? `<a href="${message.content}" target="_blank" rel="noopener">${message.content.split('/').pop()}</a>`
+                        : this.linkify(message.content));
+                return {
+                    outerClass: `${messageClass} ${message.is_temp ? 'message-sending' : 'message-sent'}`,
+                    inner: `
+                        <div class="message-info">
+                            ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
+                        </div>
+                        <div class="message-content">
+                            ${contentHTML}
+                            ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
+                        </div>`
+                };
             }
 
             displayMessages() {
@@ -608,8 +651,7 @@
                 this.chatMessages.innerHTML = this.messages.map(message => {
                     const isOwn = message.sender_id === this.currentUserId;
                     const messageClass = isOwn ? 'message own' : 'message';
-                    // Convert UTC timestamp to local time
-                    const utcDate = new Date(message.timestamp + 'Z'); // Add Z to treat as UTC
+                    const utcDate = new Date(message.timestamp + 'Z');
                     const time = utcDate.toLocaleTimeString([], { 
                         hour: '2-digit', 
                         minute: '2-digit',
@@ -619,7 +661,6 @@
                     const isRead = Boolean(message.is_read);
                     const statusClass = isRead ? 'read' : 'unread';
                     const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
-                    const statusText = isRead ? 'Read' : 'Sent';
 
                     const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
                     const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
@@ -631,7 +672,7 @@
                             </div>
                             <div class="message-content">
                                 ${message.message_type === 'image' ? `<img src="${message.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>` : (message.message_type === 'file' ? `<a href="${message.content}" target="_blank" rel="noopener">${message.content.split('/').pop()}</a>` : this.linkify(message.content))}
-                                ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
+                                ${isOwn ? `<div class="message-status ${statusClass}" title="${isRead ? 'Read' : 'Sent'}"><i class="${statusIcon}"></i></div>` : ''}
                             </div>
                         </div>
                     `;
