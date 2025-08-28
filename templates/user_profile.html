@@ -24,12 +24,16 @@
             <h1 class="pf-name">{{ user.first_name or user.username }} {{ user.last_name or '' }}</h1>
             <div class="pf-username">@{{ user.username }}</div>
         </div>
-        <div class="pf-actions">
-            <a class="btn btn-dark btn-sm" href="{{ url_for('direct_chat', user_id=user.id) }}"><i class="fas fa-message me-2"></i>Message</a>
-        </div>
+        
     </header>
 
     <main class="pf-main">
+        <section class="pf-actions-inline">
+            {% if me and me.id == user.id %}
+            <a class="btn btn-outline-light btn-sm pf-btn" href="{{ url_for('profile') }}"><i class="fas fa-user-edit me-2"></i>Edit Profile</a>
+            {% endif %}
+            <a class="btn btn-dark btn-sm pf-btn" href="{{ url_for('direct_chat', user_id=user.id) }}"><i class="fas fa-message me-2"></i>Message</a>
+        </section>
         {% if profile and profile.bio %}
         <section class="pf-section">
             <div class="pf-label">Bio</div>
