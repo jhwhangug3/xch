@@ -36,10 +36,8 @@
                                             <div class="online-status">
                                                 {% if is_other_online %}
                                                     <span class="online-indicator"></span>
-                                                    <small>Online</small>
                                                 {% else %}
                                                     <span class="offline-indicator"></span>
-                                                    <small>Offline</small>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -234,11 +232,9 @@
                     const res = await fetch('/api/presence/{{ other_user.id }}');
                     const data = await res.json();
                     if (data && typeof data.online === 'boolean') {
-                        if (data.online) {
-                            onlineEl.innerHTML = '<span class="online-indicator"></span><small>Online</small>';
-                        } else {
-                            onlineEl.innerHTML = '<span class="offline-indicator"></span><small>Offline</small>';
-                        }
+                        onlineEl.innerHTML = data.online
+                            ? '<span class="online-indicator"></span>'
+                            : '<span class="offline-indicator"></span>';
                     }
                 } catch (e) {}
             }
@@ -681,12 +677,16 @@
 
             linkify(text) {
                 const escaped = this.escapeHtml(text);
-                const urlPattern = /((https?:\/\/|www\.)[\w.-]+\.[a-zA-Z]{2,}(\/[\w\-.~:%/?#\[\]@!$&'()*+,;=]*)?)/g;
+                const urlPattern = /((https?:\/\/|www\.)[\w.-]+\.[a-zA-Z]{2,}(\/[\w\-.~:%\/?#\[\]@!$&'()*+,;=]*)?)/g;
                 const withLinks = escaped.replace(urlPattern, (match) => {
                     const href = match.startsWith('http') ? match : `https://${match}`;
                     return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>`;
                 });
-                return withLinks.replace(/\n/g, '<br>');
+                const withMentions = withLinks.replace(/(^|\s)@([a-zA-Z0-9_\.]{3,30})/g, (m, pre, uname) => {
+                    const href = `/@${uname}`;
+                    return `${pre}<a class="pf-mention" href="${href}">@${uname}</a>`;
+                });
+                return withMentions.replace(/\n/g, '<br>');
             }
 
             scrollToBottom(force = false) {
