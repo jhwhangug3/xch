@@ -84,7 +84,7 @@
     </div>
 
     <!-- Global Chat Info Offcanvas Panel (outside chat container to avoid clipping) -->
-    <div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel" style="z-index: 1055;">
+    <div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel" style="z-index: 1055; background: var(--black); color: var(--white);">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title" id="chatInfoLabel">Chat Info</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -1093,11 +1093,11 @@
 </style>
 <div id="chatInfoBackdrop" class="chat-info-backdrop" role="presentation" aria-hidden="true"></div>
 <div id="chatInfoSheet" class="chat-info-sheet" role="dialog" aria-modal="true" aria-labelledby="chatInfoLabelFallback">
-  <div class="sheet-header">
+  <div class="sheet-header" style="background: var(--black); color: var(--white);">
     <h5 id="chatInfoLabelFallback" class="mb-0">Chat Info</h5>
     <button type="button" class="btn btn-sm btn-outline-light" id="closeChatInfoSheet" aria-label="Close">✕</button>
   </div>
-  <div class="sheet-body">
+  <div class="sheet-body" style="background: var(--black); color: var(--white);">
     <div class="mb-4">
       <h6 class="mb-2">Controls</h6>
       <div class="d-flex flex-column gap-2">
