@@ -177,9 +177,18 @@
                     } catch (e) {}
                 } else {
                     document.getElementById('userLocation').textContent = 'Location unavailable';
+                    // Fallback: show device local time so UI never hangs on "Loading..."
+                    try {
+                        const mT = document.getElementById('menuLocalTime');
+                        if (mT) mT.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    } catch (_) {}
                 }
             } catch (e) {
                 document.getElementById('userLocation').textContent = 'Location unavailable';
+                try {
+                    const mT = document.getElementById('menuLocalTime');
+                    if (mT) mT.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                } catch (_) {}
             }
         }
         document.addEventListener('DOMContentLoaded', function() {
