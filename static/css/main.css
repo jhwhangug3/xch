@@ -1554,6 +1554,57 @@ p {
     }
 }
 
+/* Chat Info Offcanvas - Force Dark Theme */
+#chatInfoPanel,
+#chatInfoPanel .offcanvas-header,
+#chatInfoPanel .offcanvas-body {
+    background: var(--black) !important;
+    color: var(--white) !important;
+}
+
+#chatInfoPanel h5,
+#chatInfoPanel h6,
+#chatInfoPanel .text-muted {
+    color: var(--white) !important;
+}
+
+#chatInfoPanel .btn-close {
+    filter: invert(1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent;
+}
+
+#chatInfoPanel .btn {
+    background: var(--gray-900);
+    color: var(--white);
+    border: 1px solid var(--gray-700);
+}
+
+#chatInfoPanel .btn:hover {
+    background: var(--gray-800);
+    border-color: var(--gray-600);
+}
+
+/* Panel structure and typography improvements */
+#chatInfoPanel .offcanvas-header{border-bottom:1px solid var(--gray-800)}
+#chatInfoPanel .offcanvas-body h6{font-weight:600;margin:16px 0 8px}
+#chatInfoPanel .offcanvas-body .small{color:var(--gray-500)!important}
+#chatInfoPanel .section-sep{height:1px;background:var(--gray-800);margin:12px 0}
+
+#chatInfoPanel .list-group-item,
+#chatInfoPanel .card,
+#chatInfoPanel input,
+#chatInfoPanel .form-control {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid var(--gray-800);
+}
+
 /* Minimalist profile layout */
 .pf-header{position:sticky;top:0;z-index:10;display:block;padding:0 0 8px;backdrop-filter:saturate(180%) blur(8px);background:var(--black)}
 .pf-topbar{display:flex;align-items:center;justify-content:space-between;height:48px;padding:8px 12px;border-bottom:1px solid var(--gray-900)}
@@ -1622,7 +1673,7 @@ p {
 /* Direct chat header actions */
 .header-actions-right{margin-left:auto; margin-right:0;}
 .chat-header .header-actions-right{position:relative;}
-.info-btn{width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.info-btn{width:40px;height:40px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
 
 /* Button outline removal */
 .btn:focus, .btn:active { outline: none !important; box-shadow: none !important; }
