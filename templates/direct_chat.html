@@ -523,10 +523,14 @@
                                     const typingIndicator = document.createElement('div');
                                     typingIndicator.className = 'typing-indicator';
                                     typingIndicator.innerHTML = `
-                                        <small class="text-muted">
-                                            <i class="fas fa-pencil-alt me-1"></i>
-                                            ${this.otherUser} is typing<span class="typing-dots">...</span>
-                                        </small>`;
+                                        <div class="typing-anim">
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-shadow"></div>
+                                            <div class="typing-shadow"></div>
+                                            <div class="typing-shadow"></div>
+                                        </div>`;
                                     this.chatMessages.appendChild(typingIndicator);
                                     
                                     // Only scroll for typing indicator if user is at bottom
@@ -765,10 +769,14 @@
                             const typingIndicator = document.createElement('div');
                             typingIndicator.className = 'typing-indicator';
                             typingIndicator.innerHTML = `
-                                <small class="text-muted">
-                                    <i class="fas fa-pencil-alt me-1"></i>
-                                    ${this.otherUser} is typing<span class="typing-dots">...</span>
-                                </small>`;
+                                <div class="typing-anim">
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-shadow"></div>
+                                    <div class="typing-shadow"></div>
+                                    <div class="typing-shadow"></div>
+                                </div>`;
                             this.chatMessages.appendChild(typingIndicator);
                             
                             // Only scroll for typing if user is at bottom
