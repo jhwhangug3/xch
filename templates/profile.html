@@ -33,10 +33,10 @@
                                     <div class="avatar-overlay"></div>
                                 </div>
                                 <button class="avatar-edit-btn" type="button" id="avatarPickBtn"><i class="fas fa-camera"></i></button>
-                            </div>
-                            <div class="avatar-menu" id="avatarMenu">
-                                <button type="button" id="avatarMenuUpload"><i class="fas fa-upload me-2"></i>Upload photo</button>
-                                <button type="button" id="avatarMenuDelete"><i class="fas fa-trash me-2"></i>Remove photo</button>
+                                <div class="avatar-menu" id="avatarMenu">
+                                    <button type="button" id="avatarMenuUpload"><i class="fas fa-upload me-2"></i>Upload photo</button>
+                                    <button type="button" id="avatarMenuDelete"><i class="fas fa-trash me-2"></i>Remove photo</button>
+                                </div>
                             </div>
                             <div class="avatar-actions"></div>
                         </div>
@@ -114,7 +114,7 @@
                     <div class="settings-control">
                         <div class="form-floating w-100">
                             <input type="text" class="form-control" id="timezone" name="timezone" value="{{ profile.timezone or 'UTC' }}" placeholder="Timezone">
-                            <label for="timezone">e.g., Asia/Dhaka</label>
+                            <label for="timezone">e.g., Asia/Kuala_Lumpur</label>
                         </div>
                     </div>
                 </li>
@@ -287,20 +287,30 @@
         let MY_TIMEZONE = "{{ (profile.timezone or 'UTC') }}";
         function updateLocalTime() {
             try {
+                const dt = new Date();
                 const formatter = new Intl.DateTimeFormat([], {
                     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
-                    timeZone: MY_TIMEZONE
+                    timeZone: MY_TIMEZONE, timeZoneName: 'shortOffset'
                 });
-                const parts = formatter.formatToParts(new Date());
-                const timeString = parts.map(p => p.type === 'literal' ? p.value : (p.type === 'dayPeriod' ? ` ${p.value.toUpperCase()}` : p.value)).join('').trim();
-
-                const now = new Date();
-                const locale = 'en-US';
-                const tzDateStr = now.toLocaleString(locale, { timeZone: MY_TIMEZONE });
-                const tzDate = new Date(tzDateStr);
-                const offsetHours = Math.round((tzDate.getTime() - now.getTime()) / 3600000);
-                const offsetString = offsetHours >= 0 ? `+${offsetHours}` : `${offsetHours}`;
-                document.getElementById('localTime').textContent = `${timeString} (GMT${offsetString})`;
+                const parts = formatter.formatToParts(dt);
+                const timeString = parts.filter(p => p.type !== 'timeZoneName').map(p => p.value).join('').trim();
+                let offsetLabel = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+                // Normalize like GMT+08:00 → GMT+8
+                let pretty = offsetLabel;
+                const m = offsetLabel.match(/GMT([+-]\d{1,2})(?::?\d{2})?/i);
+                if (m) {
+                    pretty = `GMT${m[1]}`;
+                } else {
+                    // Fallback: compute offset from local timezone reliably
+                    const localOffMin = dt.getTimezoneOffset(); // minutes
+                    const tzLocalStr = dt.toLocaleString('en-US', { timeZone: MY_TIMEZONE });
+                    const tzLocalDate = new Date(tzLocalStr);
+                    const diffMin = (tzLocalDate.getTime() - dt.getTime()) / 60000; // local - target
+                    const tzOffMin = localOffMin - diffMin; // minutes behind UTC
+                    const hours = Math.round((-tzOffMin) / 60);
+                    pretty = `GMT${hours >= 0 ? '+' + hours : hours}`;
+                }
+                document.getElementById('localTime').textContent = `${timeString} (${pretty})`;
             } catch (e) {
                 const now = new Date();
                 document.getElementById('localTime').textContent = now.toUTCString().replace('GMT', '(GMT+0)');
@@ -316,59 +326,137 @@
             const input = document.getElementById('location');
             const list = document.getElementById('locationSuggestions');
             const tzInput = document.getElementById('timezone');
-            let timer = null;
+            if (!input || !list) return;
+
+            // Stable dropdown styling and stacking
+            list.style.position = 'absolute';
+            list.style.zIndex = '2000';
+            list.style.background = 'var(--black)';
+            list.style.border = '1px solid var(--gray-800)';
+            list.style.borderRadius = '12px';
+            list.style.boxShadow = '0 8px 24px rgba(0,0,0,.4)';
+            list.style.maxHeight = '260px';
+            list.style.overflow = 'auto';
+            list.style.top = 'calc(100% + 4px)';
+
+            // Caching and request control
+            const cache = new Map();
             let lastQuery = '';
-            function hideList(){ if(list){ list.style.display = 'none'; list.innerHTML = ''; } }
-            function showList(){ if(list){ list.style.display = ''; } }
-            function debounce(fn, ms){ return function(...args){ clearTimeout(timer); timer = setTimeout(()=>fn.apply(this,args), ms); }; }
+            let controller = null;
+            let highlighted = -1;
+
+            let keepOpen = false;
+            function hideList(){ if (keepOpen) return; list.style.display = 'none'; highlighted = -1; }
+            function showList(){
+                list.style.minWidth = input.offsetWidth + 'px';
+                list.style.display = 'block';
+            }
+            function clearList(){ list.innerHTML = ''; highlighted = -1; }
+
+            function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
             async function fetchPlaces(q){
                 if (!q || q.length < 2) return [];
+                if (cache.has(q)) return cache.get(q);
                 try {
-                    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
+                    if (controller) controller.abort();
+                    controller = new AbortController();
+                    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`, { signal: controller.signal, headers: { 'Cache-Control': 'no-cache' } });
                     if (!res.ok) return [];
                     const data = await res.json();
-                    return Array.isArray(data) ? data : [];
+                    const arr = Array.isArray(data) ? data : [];
+                    cache.set(q, arr);
+                    return arr;
                 } catch(_) { return []; }
             }
-            async function fetchTimezone(lat, lon){
+
+            async function fetchTimezone(lat, lon, countryCode){
                 try {
+                    if (controller) controller.abort();
+                    controller = new AbortController();
                     const url = `https://api.open-meteo.com/v1/timezone?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
-                    const res = await fetch(url);
+                    const res = await fetch(url, { signal: controller.signal });
                     if (!res.ok) return null;
                     const data = await res.json();
-                    return data && data.timezone ? data.timezone : null;
+                    let tz = data && data.timezone ? data.timezone : null;
+                    if (!tz && countryCode) {
+                        const cc = String(countryCode).toUpperCase();
+                        if (cc === 'BD') tz = 'Asia/Dhaka';
+                        else if (cc === 'MY') tz = 'Asia/Kuala_Lumpur';
+                    }
+                    return tz;
                 } catch(_) { return null; }
             }
-            async function onSelect(item){
-                input.value = item.display_name || '';
-                hideList();
-                const tz = await fetchTimezone(item.lat, item.lon);
-                if (tz && tzInput) { tzInput.value = tz; MY_TIMEZONE = tz; updateLocalTime(); }
-            }
-            const onInput = debounce(async function(){
-                if (!input || !list) return;
-                const q = input.value.trim();
-                if (!q || q === lastQuery) { hideList(); return; }
-                lastQuery = q;
-                const items = await fetchPlaces(q);
-                if (!items || items.length === 0) { hideList(); return; }
-                list.innerHTML = '';
-                items.forEach((it)=>{
+
+            function render(items){
+                clearList();
+                items.forEach((it, idx)=>{
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'list-group-item list-group-item-action';
                     btn.textContent = it.display_name;
+                    btn.dataset.idx = String(idx);
+                    btn.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); });
                     btn.addEventListener('click', ()=> onSelect(it));
                     list.appendChild(btn);
                 });
-                showList();
-            }, 300);
-            if (input && list) {
-                input.addEventListener('input', onInput);
-                input.addEventListener('focus', ()=> { if (list.childElementCount > 0) showList(); });
-                document.addEventListener('click', (e)=>{ if (!list.contains(e.target) && e.target !== input) hideList(); });
+                if (items.length > 0) showList(); else hideList();
             }
+
+            function highlight(delta){
+                const items = Array.from(list.querySelectorAll('button.list-group-item'));
+                if (items.length === 0) return;
+                highlighted = (highlighted + delta + items.length) % items.length;
+                items.forEach((el,i)=>{ el.classList.toggle('active', i===highlighted); });
+            }
+
+            async function onSelect(item){
+                input.value = item.display_name || '';
+                hideList();
+                const tz = await fetchTimezone(item.lat, item.lon, item.country_code);
+                if (tz && tzInput) {
+                    tzInput.value = tz;
+                    MY_TIMEZONE = tz;
+                    updateLocalTime();
+                    try {
+                        await fetch('/api/profile/update', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ location: input.value, timezone: tz })
+                        });
+                    } catch(_) {}
+                }
+            }
+
+            const onInput = debounce(async function(){
+                const q = input.value.trim();
+                if (!q || q === lastQuery) { hideList(); return; }
+                lastQuery = q;
+                const items = await fetchPlaces(q);
+                render(items);
+            }, 250);
+
+            input.addEventListener('input', onInput);
+            input.addEventListener('focus', ()=> { if (list.childElementCount > 0) showList(); });
+            // Prevent blur closing when clicking inside the list
+            list.addEventListener('pointerdown', (e)=>{ keepOpen = true; e.stopPropagation(); });
+            list.addEventListener('pointerup', ()=>{ setTimeout(()=>{ keepOpen = false; }, 0); });
+            document.addEventListener('click', (e)=>{ if (!list.contains(e.target) && e.target !== input) hideList(); });
+            input.addEventListener('keydown', (e)=>{
+                if (list.style.display === 'none') return;
+                const items = Array.from(list.querySelectorAll('button.list-group-item'));
+                if (e.key === 'ArrowDown') { e.preventDefault(); highlight(1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(-1); }
+                else if (e.key === 'Enter') { e.preventDefault(); if (items[highlighted]) items[highlighted].click(); }
+                else if (e.key === 'Escape') { hideList(); }
+            });
+            window.addEventListener('resize', ()=>{ if (list.style.display !== 'none') showList(); });
         })();
+
+        // Start ticking local time on load
+        document.addEventListener('DOMContentLoaded', function(){
+            try { updateLocalTime(); } catch(_) {}
+            setInterval(()=>{ try { updateLocalTime(); } catch(_) {} }, 1000);
+        });
 
         // DOMContentLoaded event listeners removed as they reference non-existent elements
 
@@ -424,13 +512,54 @@
 
         // Save All (gathers all fields and saves in one request)
         async function saveAll() {
+            const locEl = document.getElementById('location');
+            const tzEl = document.getElementById('timezone');
+            let locationStr = (locEl && locEl.value) || '';
+            let tzVal = (tzEl && tzEl.value) || '';
+
+            // Ensure timezone is a valid IANA ID; if not, resolve from geocoding
+            const looksLikeIana = /\//.test(tzVal); // e.g., Asia/Dhaka
+            async function ensureIanaTimezone() {
+                if (looksLikeIana && tzVal) return tzVal;
+                // Prefer last selected suggestion cached in closure if available via data attrs
+                let lat = (locEl && locEl.dataset.lat) || null;
+                let lon = (locEl && locEl.dataset.lon) || null;
+                let cc = (locEl && locEl.dataset.cc) || null;
+                if ((!lat || !lon) && locationStr) {
+                    try {
+                        const r = await fetch(`/api/geo/search?q=${encodeURIComponent(locationStr)}`);
+                        const arr = await r.json();
+                        if (Array.isArray(arr) && arr[0]) { lat = arr[0].lat; lon = arr[0].lon; cc = arr[0].country_code; }
+                    } catch(_) {}
+                }
+                if (lat && lon) {
+                    try {
+                        const url = `https://api.open-meteo.com/v1/timezone?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
+                        const res = await fetch(url);
+                        const data = await res.json();
+                        if (data && data.timezone) return data.timezone;
+                    } catch(_) {}
+                }
+                if (cc) {
+                    const up = String(cc).toUpperCase();
+                    if (up === 'BD') return 'Asia/Dhaka';
+                    if (up === 'MY') return 'Asia/Kuala_Lumpur';
+                }
+                return tzVal || 'UTC';
+            }
+
+            tzVal = await ensureIanaTimezone();
+            if (tzEl) tzEl.value = tzVal;
+            MY_TIMEZONE = tzVal;
+            try { updateLocalTime(); } catch(_) {}
+
             const payload = {
                 first_name: (document.getElementById('first_name') && document.getElementById('first_name').value) || '',
                 last_name: '',
                 bio: (document.getElementById('bio') && document.getElementById('bio').value) || '',
                 links: linksState || [],
-                location: (document.getElementById('location') && document.getElementById('location').value) || '',
-                timezone: (document.getElementById('timezone') && document.getElementById('timezone').value) || 'UTC',
+                location: locationStr,
+                timezone: tzVal || 'UTC',
                 new_username: (document.getElementById('new_username') && document.getElementById('new_username').value) || '',
             };
             
@@ -463,6 +592,10 @@
                             usernameField.value = payload.new_username;
                         }
                     }
+
+                    // Confirm display updates
+                    MY_TIMEZONE = payload.timezone || MY_TIMEZONE;
+                    try { updateLocalTime(); } catch(_) {}
                 } else {
                     showAlert(out.error || 'Failed to save profile', 'error');
                 }
