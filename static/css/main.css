@@ -1054,6 +1054,37 @@ p {
     padding: var(--space-8);
 }
 
+/* Edit Profile / Profile forms: force readable dark inputs */
+.profile-container input,
+.profile-container textarea,
+.profile-container select,
+.settings-control .form-control {
+    background: var(--gray-900) !important;
+    color: var(--white) !important;
+    border: 1px solid var(--gray-800) !important;
+}
+
+.profile-container input::placeholder,
+.profile-container textarea::placeholder {
+    color: var(--gray-500) !important;
+}
+
+.profile-container input:focus,
+.profile-container textarea:focus,
+.profile-container select:focus,
+.settings-control .form-control:focus {
+    border-color: var(--white) !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.12) !important;
+}
+
+/* Autofill fix for dark inputs */
+.profile-container input:-webkit-autofill,
+.profile-container textarea:-webkit-autofill,
+.settings-control .form-control:-webkit-autofill {
+    box-shadow: 0 0 0 1000px var(--gray-900) inset !important;
+    -webkit-text-fill-color: var(--white) !important;
+}
+
 .profile-header {
     text-align: center;
     margin-bottom: var(--space-8);
@@ -1605,6 +1636,27 @@ p {
     border: 1px solid var(--gray-800);
 }
 
+/* Kill any stray light backgrounds/utilities inside the panel */
+#chatInfoPanel .bg-white,
+#chatInfoPanel .bg-light,
+#chatInfoPanel .card,
+#chatInfoPanel .list-group,
+#chatInfoPanel .list-group-item,
+#chatInfoPanel .form-control,
+#chatInfoPanel .alert,
+#chatInfoPanel .input-group-text,
+#chatInfoPanel hr {
+    background: transparent !important;
+    color: var(--white) !important;
+    border-color: var(--gray-800) !important;
+}
+
+#chatInfoPanel .text-muted { color: var(--gray-500) !important; }
+
+/* Ensure body area of panel fills with dark color to bottom */
+#chatInfoPanel.offcanvas { background: var(--black) !important; }
+#chatInfoPanel .offcanvas-body { background: var(--black) !important; }
+
 /* Minimalist profile layout */
 .pf-header{position:sticky;top:0;z-index:10;display:block;padding:0 0 8px;backdrop-filter:saturate(180%) blur(8px);background:var(--black)}
 .pf-topbar{display:flex;align-items:center;justify-content:space-between;height:48px;padding:8px 12px;border-bottom:1px solid var(--gray-900)}
@@ -1698,7 +1750,7 @@ p {
 
 /* Threads/Instagram-style settings sheet */
 .settings-sheet{max-width:720px;margin:0 auto;padding:0 16px}
-.settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;height:56px;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border)}
+.settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;height:56px;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--gray-800);width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding-left:16px;padding-right:16px}
 .settings-title{font-size:1rem;font-weight:600;margin:0}
 .settings-list{list-style:none;margin:0;padding:8px 0}
 .settings-item{display:flex;align-items:center;gap:12px;padding:12px 0}
@@ -1717,7 +1769,7 @@ p {
 .btn-link-min{background:transparent;border:none;color:var(--white);padding:0}
 
 /* Settings footer (single save button) */
-.settings-footer{position:sticky;bottom:0;z-index:2;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-top:1px solid var(--border);padding:12px 16px;display:flex;justify-content:flex-end}
+.settings-footer{position:sticky;bottom:0;z-index:2;background:rgba(0,0,0,0);backdrop-filter:saturate(180%) blur(8px);border-top:1px solid var(--gray-800);padding:12px 16px;display:flex;justify-content:flex-end;width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
 .settings-footer .btn{min-width:110px}
 /* Softer inputs */
 .settings-control .form-control{background:var(--gray-50)}
@@ -1740,10 +1792,11 @@ p {
 .avatar-edit-btn{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;border-radius:50%;border:2px solid var(--white);background:var(--black);color:var(--white);display:flex;align-items:center;justify-content:center;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .avatar-edit-btn i{font-size:.8rem;line-height:1}
 /* Avatar quick menu */
-.avatar-menu{position:absolute;top:100%;right:0;background:var(--black);color:var(--white);border:1px solid var(--gray-800);border-radius:12px;box-shadow:var(--shadow-md);padding:6px;display:none;min-width:160px}
+.avatar-menu{position:absolute;top:100%;right:0;background:rgba(0,0,0,.95);color:#f5f5f5;border:1px solid var(--gray-800);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);padding:6px;display:none;min-width:180px;backdrop-filter:saturate(160%) blur(6px)}
 .avatar-menu.show{display:block}
-.avatar-menu button{width:100%;text-align:left;border:none;background:transparent;padding:8px 10px;border-radius:8px}
-.avatar-menu button:hover{background:var(--gray-100)}
+.avatar-menu button{width:100%;text-align:left;border:none;background:transparent;color:#eaeaea;padding:10px 12px;border-radius:8px;font-weight:500}
+.avatar-menu button i{opacity:.9}
+.avatar-menu button:hover{background:rgba(255,255,255,.06)}
 
 /* Ensure overlay doesn't block clicks and menu sits above */
 .avatar-overlay{pointer-events:none}
