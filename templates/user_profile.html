@@ -149,14 +149,17 @@
                     const tz = data.timezone;
                     function updateLocalTimeTz() {
                         try {
-                            const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: tz });
-                            const timeString = fmt.format(new Date());
-                            const now = new Date();
-                            const tzDateStr = now.toLocaleString('en-US', { timeZone: tz });
-                            const tzDate = new Date(tzDateStr);
-                            const offsetHours = Math.round((tzDate.getTime() - now.getTime()) / 3600000);
-                            const offsetString = offsetHours >= 0 ? `+${offsetHours}` : `${offsetHours}`;
-                            document.getElementById('localTime').textContent = `${timeString} (GMT${offsetString})`;
+                            const dt = new Date();
+                            const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: tz, timeZoneName: 'shortOffset' });
+                            const parts = fmt.formatToParts(dt);
+                            const timeString = parts.filter(p => p.type !== 'timeZoneName').map(p => p.value).join('').trim();
+                            let offsetLabel = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+                            const m = offsetLabel.match(/GMT([+-]\d{1,2})(?::?\d{2})?/i);
+                            const pretty = m ? `GMT${m[1]}` : offsetLabel || 'GMT+0';
+                            const lt = document.getElementById('localTime');
+                            if (lt) lt.textContent = `${timeString} (${pretty})`;
+                            const mT = document.getElementById('menuLocalTime');
+                            if (mT) mT.textContent = `${timeString} (${pretty})`;
                         } catch (e) {}
                     }
                     updateLocalTimeTz();
@@ -206,14 +209,7 @@
             closeMenu && closeMenu.addEventListener('click', closeMenuSheet);
             menuBackdrop && menuBackdrop.addEventListener('click', closeMenuSheet);
 
-            // Compute local time string and use saved location from profile/timezone
-            const mT = document.getElementById('menuLocalTime');
-            try {
-                const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                mT && (mT.textContent = fmt.format(new Date()));
-            } catch (_) {
-                mT && (mT.textContent = new Date().toLocaleTimeString());
-            }
+            // menuLocalTime will be filled by loadPreciseLocation using the user's timezone
             const mL = document.getElementById('menuLocation');
             const ACCOUNT_LOCATION = document.body.getAttribute('data-account-location') || '';
             if (mL) {
