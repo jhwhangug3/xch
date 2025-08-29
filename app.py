@@ -1736,7 +1736,14 @@ def geo_search():
         lat = it.get('lat'); lon = it.get('lon')
         if not name or not lat or not lon:
             continue
-        norm.append({'display_name': name, 'lat': str(lat), 'lon': str(lon)})
+        # Try to include ISO country code if available
+        cc = None
+        try:
+            addr = it.get('address') or {}
+            cc = (addr.get('country_code') or '').upper() or None
+        except Exception:
+            cc = None
+        norm.append({'display_name': name, 'lat': str(lat), 'lon': str(lon), 'country_code': cc})
     return jsonify(norm)
 
 # Jinja filter to linkify @username mentions and URLs in bio safely
