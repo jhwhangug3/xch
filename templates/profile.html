@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - ChatApp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="settings-sheet">
+            <div class="settings-header">
+                <a href="{{ url_for('dashboard') }}" class="back-button"><i class="fas fa-arrow-left"></i></a>
+                <h1 class="settings-title">Edit Profile</h1>
+                <span></span>
+            </div>
+
+            <ul class="settings-list">
+                <li class="settings-item avatar-row">
+                    <div class="settings-label">Profile Picture</div>
+                    <div class="settings-control">
+                        <div class="avatar-editor">
+                            <div class="avatar-wrap">
+                                <div class="avatar-preview" id="avatarPreview" style="cursor:pointer">
+                                    {% if user.profile_picture or profile.profile_picture %}
+                                    <img id="avatarImg" src="{{ user.profile_picture or profile.profile_picture }}" alt="Avatar">
+                                    {% else %}
+                                    <img id="avatarImg" src="" alt="Avatar">
+                                    {% endif %}
+                                    <div class="avatar-overlay"></div>
+                                </div>
+                                <button class="avatar-edit-btn" type="button" id="avatarPickBtn"><i class="fas fa-camera"></i></button>
+                                <div class="avatar-menu" id="avatarMenu">
+                                    <button type="button" id="avatarMenuUpload"><i class="fas fa-upload me-2"></i>Upload photo</button>
+                                    <button type="button" id="avatarMenuDelete"><i class="fas fa-trash me-2"></i>Remove photo</button>
+                                </div>
+                            </div>
+                            <div class="avatar-actions"></div>
+                        </div>
+                        <form id="avatarForm" enctype="multipart/form-data" class="d-none">
+                            <input type="file" id="picture" name="picture" accept="image/*">
+                        </form>
+                    </div>
+                </li>
+
+                <!-- Username (moved up) -->
+                <li class="settings-item">
+                    <div class="settings-label">Username</div>
+                    <div class="settings-control">
+                        <form id="usernameForm" class="d-flex gap-2 w-100">
+                            <div class="form-floating flex-grow-1">
+                                <input type="text" class="form-control" id="new_username" name="new_username" value="{{ user.username }}" placeholder="New username" required>
+                                <label for="new_username">New username</label>
+                            </div>
+                        </form>
+                    </div>
+                </li>
+
+                <!-- Name -->
+                <li class="settings-item">
+                    <div class="settings-label">Name</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name or user.username or '' }}" placeholder="Name">
+                            <label for="first_name">Name</label>
+                        </div>
+                    </div>
+                </li>
+
+                <!-- Bio -->
+                <li class="settings-item">
+                    <div class="settings-label">Bio</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <textarea class="form-control" id="bio" name="bio" rows="2" placeholder="Bio">{{ profile.bio or '' }}</textarea>
+                            <label for="bio">Write a short bio</label>
+                        </div>
+                    </div>
+                </li>
+
+                <!-- Links -->
+                <li class="settings-item">
+                    <div class="settings-label">Links</div>
+                    <div class="settings-control">
+                        <div id="linksList" class="w-100" data-initial='{{ (links or []) | tojson }}'></div>
+                        <input type="text" class="form-control" id="linkTitle" placeholder="Title" style="max-width:220px"/>
+                        <input type="url" class="form-control" id="linkUrl" placeholder="https://..."/>
+                        <button class="btn btn-outline-primary" id="addLinkBtn"><i class="fas fa-plus"></i></button>
+                    </div>
+                </li>
+
+                <!-- Local / Timezone -->
+                <li class="settings-item">
+                    <div class="settings-label">Local</div>
+                    <div class="settings-control">
+                        <div class="me-auto small text-muted" id="localTime">Loading…</div>
+                    </div>
+                </li>
+                <li class="settings-item">
+                    <div class="settings-label">Location</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100 position-relative">
+                            <input type="text" class="form-control" id="location" name="location" value="{{ profile.location or '' }}" placeholder="City, Country" autocomplete="off">
+                            <label for="location">City, Country</label>
+                            <div id="locationSuggestions" class="list-group" style="position:absolute; left:0; right:0; top:100%; z-index: 10; display:none; max-height: 220px; overflow:auto;"></div>
+                        </div>
+                    </div>
+                </li>
+                <li class="settings-item">
+                    <div class="settings-label">Timezone</div>
+                    <div class="settings-control">
+                        <div class="form-floating w-100">
+                            <input type="text" class="form-control" id="timezone" name="timezone" value="{{ profile.timezone or 'UTC' }}" placeholder="Timezone">
+                            <label for="timezone">e.g., Asia/Kuala_Lumpur</label>
+                        </div>
+                    </div>
+                </li>
+
+                <!-- Settings: Notifications + Logout -->
+                <li class="settings-item">
+                    <div class="settings-label">Settings</div>
+                    <div class="settings-control">
+                        <small id="notifStatus" class="text-muted me-auto"></small>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Logout</a>
+                    </div>
+                </li>
+            </ul>
+            <div class="settings-footer">
+                <button id="testProfileBtn" class="btn btn-outline-info me-2"><i class="fas fa-bug me-2"></i>Test Profile</button>
+                <button id="saveAllBtn" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save All</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Avatar upload
+        (function(){
+            const pickBtn = document.getElementById('avatarPickBtn');
+            const fileInput = document.getElementById('picture');
+            const previewImg = document.getElementById('avatarImg');
+            const previewBox = document.getElementById('avatarPreview');
+            const menu = document.getElementById('avatarMenu');
+            const menuUpload = document.getElementById('avatarMenuUpload');
+            const menuDelete = document.getElementById('avatarMenuDelete');
+            function makeInitialsPlaceholder(letter, size){
+                const s = size || 96;
+                const bg = '#1a1a1a';
+                const fg = '#ffffff';
+                const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='${s}' height='${s}' viewBox='0 0 ${s} ${s}'><rect width='100%' height='100%' rx='${s/2}' ry='${s/2}' fill='${bg}'/><text x='50%' y='58%' text-anchor='middle' font-size='${Math.round(s*0.45)}' font-family='Inter,Segoe UI,Roboto,sans-serif' fill='${fg}' font-weight='600'>${letter}</text></svg>`;
+                return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+            }
+            // If no avatar image, show initial placeholder
+            try {
+                if (!previewImg.getAttribute('src')) {
+                    const letter = ('{{ (user.first_name or user.username or "?")[:1] }}' || '?').toUpperCase();
+                    previewImg.src = makeInitialsPlaceholder(letter, 96);
+                }
+            } catch(_) {}
+            function toggleMenu(show){ if (!menu) return; menu.classList[show?'add':'remove']('show'); }
+            function openPicker(){ if (fileInput) fileInput.click(); }
+
+            // Avatar click opens menu
+            if (previewBox) {
+                previewBox.addEventListener('click', function(e){ e.stopPropagation(); if (menu) toggleMenu(true); else openPicker(); });
+            }
+            if (pickBtn) {
+                pickBtn.addEventListener('click', function(e){ e.stopPropagation(); if (menu) toggleMenu(true); else openPicker(); });
+            }
+            if (menu) {
+                document.addEventListener('click', function(){ toggleMenu(false); });
+                menu.addEventListener('click', function(e){ e.stopPropagation(); });
+            }
+            if (menuUpload) menuUpload.addEventListener('click', function(){ toggleMenu(false); openPicker(); });
+            if (menuDelete) menuDelete.addEventListener('click', async function(){
+                toggleMenu(false);
+                try {
+                    const res = await fetch('/api/profile/delete-picture', { method: 'POST' });
+                    const out = await res.json();
+                    if (res.ok) {
+                        showAlert('Profile picture deleted', 'success');
+                        const letter = ('{{ (user.first_name or user.username or "?")[:1] }}' || '?').toUpperCase();
+                        previewImg.src = makeInitialsPlaceholder(letter, 96);
+                    } else {
+                        showAlert(out.error || 'Delete failed', 'error');
+                    }
+                } catch (_) { showAlert('Delete failed', 'error'); }
+            });
+
+            if (fileInput) {
+                fileInput.addEventListener('change', async function(){
+                    if (!fileInput.files || !fileInput.files[0]) return;
+                    const data = new FormData();
+                    data.append('picture', fileInput.files[0]);
+                    try {
+                        const res = await fetch('/api/profile/upload-picture', { method: 'POST', body: data });
+                        const out = await res.json();
+                        if (res.ok && out.url) {
+                            showAlert('Profile picture updated!', 'success');
+                            previewImg.src = out.url;
+                        } else {
+                            showAlert(out.error || 'Upload failed', 'error');
+                        }
+                    } catch (_) {
+                        showAlert('Upload failed', 'error');
+                    } finally {
+                        fileInput.value = '';
+                        toggleMenu(false);
+                    }
+                });
+            }
+        })();
+
+        // Delete picture function removed as it references non-existent elements
+
+                // Basic Information Form removed as it's not part of the current profile template structure
+
+        // Username Change Form
+        document.getElementById('usernameForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const newUsername = document.getElementById('new_username').value.trim();
+            
+            if (newUsername.length < 3) {
+                showAlert('Username must be at least 3 characters long', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/profile/change-username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ new_username: newUsername })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Username changed successfully!', 'success');
+                    // Update the settings title to show the new username
+                    const titleElement = document.querySelector('.settings-title');
+                    if (titleElement) {
+                        titleElement.textContent = 'Edit Profile - ' + (document.getElementById('first_name').value || newUsername);
+                    }
+                } else {
+                    showAlert(result.error || 'Failed to change username', 'error');
+                }
+            } catch (error) {
+                console.error('Error changing username:', error);
+                showAlert('Failed to change username', 'error');
+            }
+        });
+
+        // Alert Function
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insert at the top of the settings sheet
+            const container = document.querySelector('.settings-sheet');
+            if (container) {
+                container.insertBefore(alertDiv, container.firstChild);
+            }
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Delete account function removed as it references non-existent elements
+
+        // Notifications functionality removed as it references non-existent elements
+
+        // Local time and location functionality
+        let MY_TIMEZONE = "{{ (profile.timezone or 'UTC') }}";
+        function updateLocalTime() {
+            try {
+                const dt = new Date();
+                const formatter = new Intl.DateTimeFormat([], {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+                    timeZone: MY_TIMEZONE, timeZoneName: 'shortOffset'
+                });
+                const parts = formatter.formatToParts(dt);
+                const timeString = parts.filter(p => p.type !== 'timeZoneName').map(p => p.value).join('').trim();
+                let offsetLabel = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+                // Normalize like GMT+08:00 → GMT+8
+                let pretty = offsetLabel;
+                const m = offsetLabel.match(/GMT([+-]\d{1,2})(?::?\d{2})?/i);
+                if (m) {
+                    pretty = `GMT${m[1]}`;
+                } else {
+                    // Fallback: compute offset from local timezone reliably
+                    const localOffMin = dt.getTimezoneOffset(); // minutes
+                    const tzLocalStr = dt.toLocaleString('en-US', { timeZone: MY_TIMEZONE });
+                    const tzLocalDate = new Date(tzLocalStr);
+                    const diffMin = (tzLocalDate.getTime() - dt.getTime()) / 60000; // local - target
+                    const tzOffMin = localOffMin - diffMin; // minutes behind UTC
+                    const hours = Math.round((-tzOffMin) / 60);
+                    pretty = `GMT${hours >= 0 ? '+' + hours : hours}`;
+                }
+                document.getElementById('localTime').textContent = `${timeString} (${pretty})`;
+            } catch (e) {
+                const now = new Date();
+                document.getElementById('localTime').textContent = now.toUTCString().replace('GMT', '(GMT+0)');
+            }
+        }
+
+        // Presence heartbeat removed as it references non-existent elements
+
+        // Save location button removed as it references non-existent elements
+
+        // Debounced global place autocomplete using OpenStreetMap Nominatim
+        (function(){
+            const input = document.getElementById('location');
+            const list = document.getElementById('locationSuggestions');
+            const tzInput = document.getElementById('timezone');
+            if (!input || !list) return;
+
+            // Stable dropdown styling and stacking
+            list.style.position = 'absolute';
+            list.style.zIndex = '2000';
+            list.style.background = 'var(--black)';
+            list.style.border = '1px solid var(--gray-800)';
+            list.style.borderRadius = '12px';
+            list.style.boxShadow = '0 8px 24px rgba(0,0,0,.4)';
+            list.style.maxHeight = '260px';
+            list.style.overflow = 'auto';
+            list.style.top = 'calc(100% + 4px)';
+
+            // Caching and request control
+            const cache = new Map();
+            let lastQuery = '';
+            let controller = null;
+            let highlighted = -1;
+
+            let keepOpen = false;
+            function hideList(){ if (keepOpen) return; list.style.display = 'none'; highlighted = -1; }
+            function showList(){
+                list.style.minWidth = input.offsetWidth + 'px';
+                list.style.display = 'block';
+            }
+            function clearList(){ list.innerHTML = ''; highlighted = -1; }
+
+            function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+            async function fetchPlaces(q){
+                if (!q || q.length < 2) return [];
+                if (cache.has(q)) return cache.get(q);
+                try {
+                    if (controller) controller.abort();
+                    controller = new AbortController();
+                    const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`, { signal: controller.signal, headers: { 'Cache-Control': 'no-cache' } });
+                    if (!res.ok) return [];
+                    const data = await res.json();
+                    const arr = Array.isArray(data) ? data : [];
+                    cache.set(q, arr);
+                    return arr;
+                } catch(_) { return []; }
+            }
+
+            async function fetchTimezone(lat, lon, countryCode){
+                try {
+                    if (controller) controller.abort();
+                    controller = new AbortController();
+                    const url = `https://api.open-meteo.com/v1/timezone?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
+                    const res = await fetch(url, { signal: controller.signal });
+                    if (!res.ok) return null;
+                    const data = await res.json();
+                    let tz = data && data.timezone ? data.timezone : null;
+                    if (!tz && countryCode) {
+                        const cc = String(countryCode).toUpperCase();
+                        if (cc === 'BD') tz = 'Asia/Dhaka';
+                        else if (cc === 'MY') tz = 'Asia/Kuala_Lumpur';
+                    }
+                    return tz;
+                } catch(_) { return null; }
+            }
+
+            function render(items){
+                clearList();
+                items.forEach((it, idx)=>{
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action';
+                    btn.textContent = it.display_name;
+                    btn.dataset.idx = String(idx);
+                    btn.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); });
+                    btn.addEventListener('click', ()=> onSelect(it));
+                    list.appendChild(btn);
+                });
+                if (items.length > 0) showList(); else hideList();
+            }
+
+            function highlight(delta){
+                const items = Array.from(list.querySelectorAll('button.list-group-item'));
+                if (items.length === 0) return;
+                highlighted = (highlighted + delta + items.length) % items.length;
+                items.forEach((el,i)=>{ el.classList.toggle('active', i===highlighted); });
+            }
+
+            async function onSelect(item){
+                input.value = item.display_name || '';
+                hideList();
+                const tz = await fetchTimezone(item.lat, item.lon, item.country_code);
+                if (tz && tzInput) {
+                    tzInput.value = tz;
+                    MY_TIMEZONE = tz;
+                    updateLocalTime();
+                    try {
+                        await fetch('/api/profile/update', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ location: input.value, timezone: tz })
+                        });
+                    } catch(_) {}
+                }
+            }
+
+            const onInput = debounce(async function(){
+                const q = input.value.trim();
+                if (!q || q === lastQuery) { hideList(); return; }
+                lastQuery = q;
+                const items = await fetchPlaces(q);
+                render(items);
+            }, 250);
+
+            input.addEventListener('input', onInput);
+            input.addEventListener('focus', ()=> { if (list.childElementCount > 0) showList(); });
+            // Prevent blur closing when clicking inside the list
+            list.addEventListener('pointerdown', (e)=>{ keepOpen = true; e.stopPropagation(); });
+            list.addEventListener('pointerup', ()=>{ setTimeout(()=>{ keepOpen = false; }, 0); });
+            document.addEventListener('click', (e)=>{ if (!list.contains(e.target) && e.target !== input) hideList(); });
+            input.addEventListener('keydown', (e)=>{
+                if (list.style.display === 'none') return;
+                const items = Array.from(list.querySelectorAll('button.list-group-item'));
+                if (e.key === 'ArrowDown') { e.preventDefault(); highlight(1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); highlight(-1); }
+                else if (e.key === 'Enter') { e.preventDefault(); if (items[highlighted]) items[highlighted].click(); }
+                else if (e.key === 'Escape') { hideList(); }
+            });
+            window.addEventListener('resize', ()=>{ if (list.style.display !== 'none') showList(); });
+        })();
+
+        // Start ticking local time on load
+        document.addEventListener('DOMContentLoaded', function(){
+            try { updateLocalTime(); } catch(_) {}
+            setInterval(()=>{ try { updateLocalTime(); } catch(_) {} }, 1000);
+        });
+
+        // DOMContentLoaded event listeners removed as they reference non-existent elements
+
+        // Links management
+        function renderLinks(items) {
+            const container = document.getElementById('linksList');
+            container.innerHTML = '';
+            (items || []).forEach((it, idx) => {
+                const row = document.createElement('div');
+                row.className = 'd-flex align-items-center gap-2 mb-2';
+                row.innerHTML = `<input class="form-control" value="${it.title || ''}" data-idx="${idx}" data-field="title" placeholder="Title">` +
+                                `<input class="form-control" value="${it.url || ''}" data-idx="${idx}" data-field="url" placeholder="https://...">` +
+                                `<button class="btn btn-outline-danger" data-del="${idx}"><i class="fas fa-trash"></i></button>`;
+                container.appendChild(row);
+            });
+        }
+        let linksState = [];
+        async function loadLinks() {
+            try {
+                const el = document.getElementById('linksList');
+                const initial = el.getAttribute('data-initial');
+                linksState = initial ? JSON.parse(initial) : [];
+            } catch (e) { linksState = []; }
+            renderLinks(linksState);
+        }
+        document.getElementById('addLinkBtn').addEventListener('click', function() {
+            const title = document.getElementById('linkTitle').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
+            if (!url) return;
+            linksState.push({ title, url });
+            renderLinks(linksState);
+            document.getElementById('linkTitle').value = '';
+            document.getElementById('linkUrl').value = '';
+        });
+        document.getElementById('linksList').addEventListener('click', function(e) {
+            const idx = e.target.getAttribute('data-del') || (e.target.closest('button') && e.target.closest('button').getAttribute('data-del'));
+            if (idx != null) {
+                linksState.splice(parseInt(idx), 1);
+                renderLinks(linksState);
+            }
+        });
+        document.getElementById('linksList').addEventListener('input', function(e) {
+            const idx = e.target.getAttribute('data-idx');
+            const field = e.target.getAttribute('data-field');
+            if (idx != null && field) {
+                linksState[parseInt(idx)][field] = e.target.value;
+            }
+        });
+        // Save links button removed as it references non-existent elements
+        document.addEventListener('DOMContentLoaded', loadLinks);
+
+        // Friends section removed as it's not part of the current profile template structure
+
+        // Save All (gathers all fields and saves in one request)
+        async function saveAll() {
+            const locEl = document.getElementById('location');
+            const tzEl = document.getElementById('timezone');
+            let locationStr = (locEl && locEl.value) || '';
+            let tzVal = (tzEl && tzEl.value) || '';
+
+            // Ensure timezone is a valid IANA ID; if not, resolve from geocoding
+            const looksLikeIana = /\//.test(tzVal); // e.g., Asia/Dhaka
+            async function ensureIanaTimezone() {
+                if (looksLikeIana && tzVal) return tzVal;
+                // Prefer last selected suggestion cached in closure if available via data attrs
+                let lat = (locEl && locEl.dataset.lat) || null;
+                let lon = (locEl && locEl.dataset.lon) || null;
+                let cc = (locEl && locEl.dataset.cc) || null;
+                if ((!lat || !lon) && locationStr) {
+                    try {
+                        const r = await fetch(`/api/geo/search?q=${encodeURIComponent(locationStr)}`);
+                        const arr = await r.json();
+                        if (Array.isArray(arr) && arr[0]) { lat = arr[0].lat; lon = arr[0].lon; cc = arr[0].country_code; }
+                    } catch(_) {}
+                }
+                if (lat && lon) {
+                    try {
+                        const url = `https://api.open-meteo.com/v1/timezone?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
+                        const res = await fetch(url);
+                        const data = await res.json();
+                        if (data && data.timezone) return data.timezone;
+                    } catch(_) {}
+                }
+                if (cc) {
+                    const up = String(cc).toUpperCase();
+                    if (up === 'BD') return 'Asia/Dhaka';
+                    if (up === 'MY') return 'Asia/Kuala_Lumpur';
+                }
+                return tzVal || 'UTC';
+            }
+
+            tzVal = await ensureIanaTimezone();
+            if (tzEl) tzEl.value = tzVal;
+            MY_TIMEZONE = tzVal;
+            try { updateLocalTime(); } catch(_) {}
+
+            const payload = {
+                first_name: (document.getElementById('first_name') && document.getElementById('first_name').value) || '',
+                last_name: '',
+                bio: (document.getElementById('bio') && document.getElementById('bio').value) || '',
+                links: linksState || [],
+                location: locationStr,
+                timezone: tzVal || 'UTC',
+                new_username: (document.getElementById('new_username') && document.getElementById('new_username').value) || '',
+            };
+            
+            console.log('Saving profile with payload:', payload);
+            
+            try {
+                const res = await fetch('/api/profile/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const out = await res.json();
+                console.log('Profile update response:', out);
+                
+                if (res.ok) {
+                    showAlert(`Profile saved successfully! Updated: ${out.updated_fields?.join(', ') || 'all fields'}`, 'success');
+                    
+                    // Update the settings title to show the new name
+                    const titleElement = document.querySelector('.settings-title');
+                    if (titleElement) {
+                        const newName = payload.first_name || payload.new_username || '{{ user.username }}';
+                        titleElement.textContent = 'Edit Profile - ' + newName;
+                    }
+                    
+                    // Update the username field if it was changed
+                    if (out.updated_fields && out.updated_fields.includes('username')) {
+                        const usernameField = document.getElementById('new_username');
+                        if (usernameField) {
+                            usernameField.value = payload.new_username;
+                        }
+                    }
+
+                    // Confirm display updates
+                    MY_TIMEZONE = payload.timezone || MY_TIMEZONE;
+                    try { updateLocalTime(); } catch(_) {}
+                } else {
+                    showAlert(out.error || 'Failed to save profile', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                showAlert('Failed to save profile: ' + error.message, 'error');
+            }
+        }
+        document.getElementById('saveAllBtn').addEventListener('click', saveAll);
+        
+        // Test profile functionality
+        document.getElementById('testProfileBtn').addEventListener('click', async function() {
+            try {
+                const res = await fetch('/api/profile/test');
+                const data = await res.json();
+                if (res.ok) {
+                    console.log('Profile test result:', data);
+                    showAlert('Profile system test passed! Check console for details.', 'success');
+                } else {
+                    showAlert('Profile test failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Profile test error:', error);
+                showAlert('Profile test error: ' + error.message, 'error');
+            }
+        });
+
+        // Debounced autosave on change
+        function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+        const autoSave = debounce(saveAll, 700);
+        ['first_name','bio','location','timezone','new_username'].forEach(id=>{
+            const el = document.getElementById(id);
+            if (el) { el.addEventListener('input', autoSave); }
+        });
+    </script>
+</body>
+</html>

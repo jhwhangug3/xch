@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user.first_name or user.username }} - Profile</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
+</head>
+<body data-viewed-user-id="{{ user.id }}" data-account-location="{{ (profile.location or '') | e }}">
+    <header class="pf-header">
+        <div class="pf-topbar">
+            <a href="{{ url_for('dashboard') }}" class="pf-back"><i class="fas fa-arrow-left"></i></a>
+            <div class="flex-1"></div>
+            <button class="pf-kebab" id="openProfileMenu" aria-label="More"><i class="fas fa-ellipsis"></i></button>
+        </div>
+        <div class="pf-header-main">
+            <div class="pf-avatar-wrap">
+                <div class="pf-avatar">
+                    {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture }}" alt="">
+                    {% else %}
+                    <i class="fas fa-user"></i>
+                    {% endif %}
+                </div>
+                <span id="presenceDot" class="presence-dot offline" aria-label="presence"></span>
+            </div>
+            <div class="pf-meta">
+                <div class="pf-name-line">
+                    <h1 class="pf-name">{{ user.first_name or user.username }} {{ user.last_name or '' }}</h1>
+                    <span class="pf-dot">•</span>
+                    <button class="pf-friends-link" id="openFriendsSheetTop">{{ friends|length }} friends</button>
+                </div>
+                <div class="pf-username">@{{ user.username }}</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="pf-main">
+        {% if profile and profile.bio %}
+        <section class="pf-bio-inline">
+            <div class="pf-text" id="bioText" data-profile-url-template="{{ url_for('view_user_profile_by_username', username='__USERNAME__') }}">{{ profile.bio }}</div>
+        </section>
+        {% endif %}
+        {% if links and links|length > 0 %}
+        <section class="pf-link-inline">
+            {% set first_link = links[0] %}
+            <a href="{{ first_link.url }}" target="_blank" rel="noopener" class="pf-website">{{ first_link.title or first_link.url }}</a>
+        </section>
+        {% endif %}
+
+        <section class="pf-actions-inline">
+            {% if me and me.id == user.id %}
+            <a class="btn btn-outline-light btn-sm pf-btn" href="{{ url_for('profile') }}"><i class="fas fa-user-edit me-2"></i>Edit Profile</a>
+            {% endif %}
+            <a class="btn btn-dark btn-sm pf-btn" href="{{ url_for('direct_chat', user_id=user.id) }}"><i class="fas fa-message me-2"></i>Message</a>
+        </section>
+
+        
+
+        <section class="pf-section pf-friends-inline d-none">
+            <button class="btn btn-secondary btn-sm" id="openFriendsSheet"><i class="fas fa-user-friends me-2"></i>Friends {{ '(' ~ friends|length ~ ')' }}</button>
+        </section>
+
+        <div class="pf-bottom-sheet" id="friendsSheet" aria-hidden="true">
+            <div class="pf-sheet-backdrop" id="friendsBackdrop"></div>
+            <div class="pf-sheet">
+                <div class="pf-sheet-handle"></div>
+                <div class="pf-sheet-header">
+                    <h6 class="m-0">Friends</h6>
+                    <button class="btn btn-outline-light btn-sm" id="closeFriendsSheet">Close</button>
+                </div>
+                <div class="pf-sheet-body">
+                    {% for f in friends %}
+                    <a href="{{ url_for('view_user_profile_by_username', username=f.username) }}" class="pf-friend pf-friend-row">
+                        {% if f.profile_picture %}
+                        <img src="{{ f.profile_picture }}" alt="">
+                        {% else %}
+                        <i class="fas fa-user-circle"></i>
+                        {% endif %}
+                        <div class="pf-friend-meta">
+                            <strong>{{ f.first_name or f.username }}</strong>
+                            <small class="text-muted">@{{ f.username }}</small>
+                        </div>
+                        <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    {% endfor %}
+                    {% if not friends %}
+                    <div class="text-muted small">No friends yet</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="pf-bottom-sheet" id="profileMenuSheet" aria-hidden="true">
+            <div class="pf-sheet-backdrop" id="menuBackdrop"></div>
+            <div class="pf-sheet">
+                <div class="pf-sheet-handle"></div>
+                <div class="pf-sheet-header">
+                    <h6 class="m-0">Profile options</h6>
+                    <button class="btn btn-outline-light btn-sm" id="closeProfileMenu">Close</button>
+                </div>
+                <div class="pf-sheet-body">
+                    <div class="pf-menu-row"><i class="fas fa-clock me-2"></i><span id="menuLocalTime">Loading…</span></div>
+                    <div class="pf-menu-row"><i class="fas fa-map-marker-alt me-2"></i><span id="menuLocation">Account based in —</span></div>
+                    <hr class="my-2"/>
+                    <button class="btn w-100 mb-2" id="copyProfileLink"><i class="fas fa-link me-2"></i>Copy profile link</button>
+                    <button class="btn w-100" id="shareToFriend"><i class="fas fa-paper-plane me-2"></i>Share in chat…</button>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+
+    <script>
+        // Presence and precise location/time for viewed user
+        const VIEWED_USER_ID = Number(document.body.getAttribute('data-viewed-user-id'));
+        async function pollPresence() {
+            try {
+                const res = await fetch(`/api/presence/${VIEWED_USER_ID}`);
+                const d = await res.json();
+                const dot = document.getElementById('presenceDot');
+                if (d.online) { dot && (dot.classList.add('online'), dot.classList.remove('offline')); }
+                else { dot && (dot.classList.add('offline'), dot.classList.remove('online')); }
+            } catch (e) {
+                const dot = document.getElementById('presenceDot');
+                dot && (dot.classList.add('offline'), dot.classList.remove('online'));
+            }
+        }
+        function autolinkBio() {
+            const el = document.getElementById('bioText');
+            if (!el) return;
+            const template = el.getAttribute('data-profile-url-template') || '/u/__USERNAME__';
+            const escapeHtml = (t) => { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; };
+            const raw = el.textContent || '';
+            const escaped = escapeHtml(raw);
+            const linked = escaped.replace(/(^|\s)@([a-zA-Z0-9_\.]{3,30})/g, (m, pre, uname) => {
+                const href = template.replace('__USERNAME__', uname);
+                return `${pre}<a class="pf-mention" href="${href}">@${uname}</a>`;
+            }).replace(/\n/g, '<br>');
+            el.innerHTML = linked;
+        }
+        async function loadPreciseLocation() {
+            try {
+                const res = await fetch(`/api/profile/location/${VIEWED_USER_ID}`);
+                const data = await res.json();
+                if (data.timezone) {
+                    const tz = data.timezone;
+                    function updateLocalTimeTz() {
+                        try {
+                            const dt = new Date();
+                            const fmt = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: tz, timeZoneName: 'shortOffset' });
+                            const parts = fmt.formatToParts(dt);
+                            const timeString = parts.filter(p => p.type !== 'timeZoneName').map(p => p.value).join('').trim();
+                            let offsetLabel = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+                            const m = offsetLabel.match(/GMT([+-]\d{1,2})(?::?\d{2})?/i);
+                            const pretty = m ? `GMT${m[1]}` : offsetLabel || 'GMT+0';
+                            const lt = document.getElementById('localTime');
+                            if (lt) lt.textContent = `${timeString} (${pretty})`;
+                            const mT = document.getElementById('menuLocalTime');
+                            if (mT) mT.textContent = `${timeString} (${pretty})`;
+                        } catch (e) {}
+                    }
+                    updateLocalTimeTz();
+                    setInterval(updateLocalTimeTz, 1000);
+                    // Privacy-friendly location display from timezone
+                    try {
+                        if (tz.includes('/')) {
+                            const parts = tz.split('/');
+                            const region = parts[0].replace('_', ' ');
+                            const city = parts.slice(1).join('/').replace(/_/g, ' ');
+                            document.getElementById('userLocation').textContent = `${city}, ${region}`;
+                        } else {
+                            document.getElementById('userLocation').textContent = tz;
+                        }
+                    } catch (e) {}
+                } else {
+                    document.getElementById('userLocation').textContent = 'Location unavailable';
+                    // Fallback: show device local time so UI never hangs on "Loading..."
+                    try {
+                        const mT = document.getElementById('menuLocalTime');
+                        if (mT) mT.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    } catch (_) {}
+                }
+            } catch (e) {
+                document.getElementById('userLocation').textContent = 'Location unavailable';
+                try {
+                    const mT = document.getElementById('menuLocalTime');
+                    if (mT) mT.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                } catch (_) {}
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            pollPresence();
+            setInterval(pollPresence, 8000);
+            loadPreciseLocation();
+            autolinkBio();
+            // Friends bottom sheet
+            const openFriends = document.getElementById('openFriendsSheet') || document.getElementById('openFriendsSheetTop');
+            const closeFriends = document.getElementById('closeFriendsSheet');
+            const sheet = document.getElementById('friendsSheet');
+            const backdrop = document.getElementById('friendsBackdrop');
+            function openSheet(){ sheet && sheet.classList.add('show'); document.body.style.overflow='hidden'; }
+            function closeSheet(){ sheet && sheet.classList.remove('show'); document.body.style.overflow=''; }
+            openFriends && openFriends.addEventListener('click', openSheet);
+            closeFriends && closeFriends.addEventListener('click', closeSheet);
+            backdrop && backdrop.addEventListener('click', closeSheet);
+
+            // Kebab options bottom sheet
+            const openMenu = document.getElementById('openProfileMenu');
+            const menuSheet = document.getElementById('profileMenuSheet');
+            const closeMenu = document.getElementById('closeProfileMenu');
+            const menuBackdrop = document.getElementById('menuBackdrop');
+            function openMenuSheet(){ menuSheet && menuSheet.classList.add('show'); document.body.style.overflow='hidden'; }
+            function closeMenuSheet(){ menuSheet && menuSheet.classList.remove('show'); document.body.style.overflow=''; }
+            openMenu && openMenu.addEventListener('click', openMenuSheet);
+            closeMenu && closeMenu.addEventListener('click', closeMenuSheet);
+            menuBackdrop && menuBackdrop.addEventListener('click', closeMenuSheet);
+
+            // menuLocalTime will be filled by loadPreciseLocation using the user's timezone
+            const mL = document.getElementById('menuLocation');
+            const ACCOUNT_LOCATION = document.body.getAttribute('data-account-location') || '';
+            if (mL) {
+                mL.textContent = ACCOUNT_LOCATION ? `Account based in ${ACCOUNT_LOCATION}` : 'Account location unavailable';
+            }
+
+            // Share actions
+            const copyBtn = document.getElementById('copyProfileLink');
+            const shareBtn = document.getElementById('shareToFriend');
+            const profileUrl = window.location.origin + `{{ url_for('view_user_profile_by_username', username=user.username) }}`;
+            copyBtn && copyBtn.addEventListener('click', async function(){
+                try { await navigator.clipboard.writeText(profileUrl); alert('Profile link copied'); } catch (_) { alert(profileUrl); }
+            });
+            shareBtn && shareBtn.addEventListener('click', function(){
+                closeMenuSheet();
+                openSheet();
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Bottom Navigation Bar - Only show when viewing own profile -->
+    {% if me and me.id == user.id %}
+    <nav class="bottom-nav" id="bottomNav">
+        <div class="bottom-nav-inner">
+            <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+            </a>
+            <a href="{{ url_for('messaging') }}" class="nav-item {% if request.endpoint == 'messaging' %}active{% endif %}">
+                <i class="fas fa-comment"></i>
+            </a>
+            <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
+                <i class="fas fa-bell"></i>
+            </a>
+            <a href="{{ get_profile_url(user) }}" class="nav-item {% if request.endpoint in ['profile', 'view_user_profile_by_username', 'view_user_profile_by_username_alt', 'view_user_profile'] %}active{% endif %}">
+                <div class="profile-avatar-small">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture }}" alt="Profile"/>
+                    {% else %}
+                        <i class="fas fa-user"></i>
+                    {% endif %}
+                </div>
+            </a>
+        </div>
+    </nav>
+    {% endif %}
+</body>
+</html>
+
+

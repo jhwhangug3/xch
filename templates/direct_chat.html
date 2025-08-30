@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+    <title>Chat with {{ other_user.first_name or other_user.username }} - Advanced Chat App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
+</head>
+<body>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="chat-container">
+                    <!-- Chat Header -->
+                    <div class="chat-header" id="chatHeaderBar">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div class="d-flex align-items-center gap-3">
+                                <a href="{{ url_for('dashboard') }}" class="back-button p-1" title="Back">
+                                    <i class="fas fa-arrow-left fa-sm"></i>
+                                </a>
+                                <div class="user-info">
+                                    <a href="{{ url_for('view_user_profile_by_username', username=other_user.username) }}" class="d-flex align-items-center text-decoration-none">
+                                        <div class="user-avatar overflow-hidden me-2">
+                                            {% if other_user.profile_picture %}
+                                                <img src="{{ other_user.profile_picture }}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+                                            {% else %}
+                                                <i class="fas fa-user"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h4 class="mb-0">{{ other_user.first_name or other_user.username }}</h4>
+                                            <div class="online-status">
+                                                {% if is_other_online %}
+                                                    <span class="online-indicator"></span>
+                                                {% else %}
+                                                    <span class="offline-indicator"></span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="header-actions-right d-flex align-items-center gap-2">
+                                <button id="openChatInfoBtn" class="btn btn-outline-light btn-sm info-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#chatInfoPanel" aria-controls="chatInfoPanel" title="Chat info" onclick="(function(){var s=document.getElementById('chatInfoSheet');var b=document.getElementById('chatInfoBackdrop'); if(s&&b){s.classList.add('show'); b.classList.add('show');}})(); return false;">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Messages -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="text-center text-muted mt-4">
+                            <i class="fas fa-comments fa-2x mb-2"></i>
+                            <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
+                        </div>
+                        <button id="goToBottomBtn" type="button" class="btn btn-secondary btn-sm position-fixed" style="right:16px; bottom: calc(var(--chat-input-h, 88px) + 16px); display:none; z-index: 1003; border-radius:999px; padding:6px 10px;">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="chat-input" id="chatInputBar">
+                        <form id="messageForm" class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-attach" onclick="attachFile()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <div class="position-relative flex-grow-1">
+                                <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." required>
+                                <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
+                            </div>
+                            <button id="sendBtn" type="button" class="btn btn-send">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Chat Info Offcanvas Panel (outside chat container to avoid clipping) -->
+    <div class="offcanvas offcanvas-end" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="chatInfoPanel" aria-labelledby="chatInfoLabel" style="z-index: 1055; background: var(--black); color: var(--white);">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="chatInfoLabel">Chat Info</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="mb-4">
+                <h6 class="mb-2">Controls</h6>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-secondary btn-sm" id="muteChatBtn"><i class="fas fa-bell-slash me-2"></i>Mute</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn"><i class="fas fa-thumbtack me-2"></i>Pin</button>
+                    <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel"><i class="fas fa-trash me-2"></i>Clear chat</button>
+                    <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
+                </div>
+            </div>
+            <div class="mb-4">
+                <h6 class="mb-2">Media</h6>
+                <div>
+                    <div class="small text-muted mb-1">Pictures</div>
+                    <div id="chatPictures" class="d-flex flex-wrap gap-2"></div>
+                </div>
+                <div class="mt-3">
+                    <div class="small text-muted mb-1">Files</div>
+                    <div id="chatFiles" class="d-flex flex-column gap-1"></div>
+                </div>
+            </div>
+            <div>
+                <h6 class="mb-2">Tools</h6>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
+                    <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set CSS var for input height so messages area avoids being covered
+        function setChatInputHeight() {
+            const bar = document.getElementById('chatInputBar');
+            if (!bar) return;
+            const h = bar.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--chat-input-h', h + 'px');
+        }
+        function setChatHeaderHeight() {
+            const bar = document.getElementById('chatHeaderBar');
+            if (!bar) return;
+            const h = bar.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--chat-header-h', h + 'px');
+        }
+        // Web Push helpers
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+            return outputArray;
+        }
+        async function ensurePush() {
+            try {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                const reg = await navigator.serviceWorker.register('/static/sw.js');
+                const resp = await fetch('/api/notifications/vapid-public-key');
+                if (!resp.ok) {
+                    console.log('Push notifications not available');
+                    return;
+                }
+                const data = await resp.json();
+                if (data.error) {
+                    console.log('Push notifications error:', data.error);
+                    return;
+                }
+                const key = data && data.key;
+                if (!key) return;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+                }
+                await fetch('/api/notifications/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription: sub.toJSON() })
+                });
+            } catch (e) { 
+                console.log('Push notification setup failed:', e);
+            }
+        }
+        window.addEventListener('resize', setChatInputHeight);
+        window.addEventListener('orientationchange', setChatInputHeight);
+        document.addEventListener('DOMContentLoaded', setChatInputHeight);
+        window.addEventListener('resize', setChatHeaderHeight);
+        window.addEventListener('orientationchange', setChatHeaderHeight);
+        document.addEventListener('DOMContentLoaded', setChatHeaderHeight);
+        document.addEventListener('DOMContentLoaded', ensurePush);
+        // Clear chat action
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnPanelClear = document.getElementById('clearChatBtnPanel');
+            if (btnPanelClear) {
+                btnPanelClear.addEventListener('click', async () => {
+                    if (!confirm('Clear this conversation? This will permanently delete ALL messages, images, files, and chat history from the database. This action cannot be undone.')) return;
+                    
+                    try {
+                        const res = await fetch('/api/chat/{{ other_user.id }}/clear', { method: 'POST' });
+                        const out = await res.json();
+                        if (res.ok) {
+                            // Clear local messages array
+                            if (window.ultraFastChatApp) {
+                                window.ultraFastChatApp.messages = [];
+                                window.ultraFastChatApp.lastMessageTimestamp = null;
+                            }
+                            
+                            // Clear UI
+                            const list = document.getElementById('chatMessages');
+                            list.innerHTML = `
+                                <div class="text-center text-muted mt-4">
+                                    <i class="fas fa-comments fa-2x mb-2"></i>
+                                    <p>Start your conversation with {{ other_user.first_name or other_user.username }}!</p>
+                                </div>
+                            `;
+                            
+                            // Show success message
+                            alert('Chat history has been completely cleared. All messages, images, and files have been permanently deleted.');
+                        } else {
+                            alert(out.error || 'Failed to clear chat');
+                        }
+                    } catch (error) {
+                        console.error('Error clearing chat:', error);
+                        alert('Failed to clear chat. Please try again.');
+                    }
+                });
+            }
+        });
+        (function() {
+            const root = document.documentElement;
+            root.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+    <script>
+        // Presence polling for chat header
+        document.addEventListener('DOMContentLoaded', function() {
+            const onlineEl = document.querySelector('.online-status');
+            async function pollPresenceChat() {
+                try {
+                    const res = await fetch('/api/presence/{{ other_user.id }}');
+                    const data = await res.json();
+                    if (data && typeof data.online === 'boolean') {
+                        onlineEl.innerHTML = data.online
+                            ? '<span class="online-indicator"></span>'
+                            : '<span class="offline-indicator"></span>';
+                    }
+                } catch (e) {}
+            }
+            pollPresenceChat();
+            setInterval(pollPresenceChat, 8000);
+        });
+    </script>
+    <script>
+        class UltraFastChatApp {
+            constructor() {
+                this.messages = [];
+                this.currentUser = '{{ session.username }}';
+                this.otherUser = '{{ other_user.username }}';
+                this.otherUserId = {{ other_user.id | tojson }};
+                this.currentUserId = {{ session.user_id | tojson }};
+                this.messageForm = document.getElementById('messageForm');
+                this.messageInput = document.getElementById('messageInput');
+                this.chatMessages = document.getElementById('chatMessages');
+                this.isTyping = false;
+                this.lastMessageTimestamp = null;
+                this.pendingMessages = new Map(); // Track pending messages
+                this.messageQueue = []; // Queue for sending messages
+                this.isProcessingQueue = false;
+                this.lastRRCheckTs = 0; // last read-receipt check timestamp
+                this.otherIsTypingUntil = 0; // ms epoch until which we show typing
+                this.typingHeartbeat = null; // interval id for typing pings
+                this.typingTimeout = null; // timeout for typing indicator
+                this.autoScrollTimeout = null; // timeout for auto-scroll to prevent interruption
+                this.isUserAtBottom = true; // Track if user is at bottom
+                this.lastMessageCount = 0; // Track message count changes
+                // Virtualization window
+                this.renderWindowSize = 100; // render only last N messages
+                this.renderStartIndex = 0;
+                this.renderEndIndex = 0;
+                // Batched DOM updates
+                this._renderScheduled = false;
+                this._pendingScrollMode = null; // 'bottom' | 'preserve-delta' | null
+                
+                this.init();
+            }
+
+            init() {
+                this.loadMessages();
+                this.setupEventListeners();
+                this.setupScrollDetection();
+                this.setupTypingSocket();
+                this.startMessagePolling();
+                this.setupMessageQueue();
+                this.installVisibilityHooks();
+            }
+
+            setupEventListeners() {
+                this.messageForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                    // Restore focus so mobile keyboard stays open
+                    try { this.messageInput.focus(); } catch (_) {}
+                    try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
+                });
+
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                        // Keep focus on enter submit as well
+                        try { this.messageInput.focus(); } catch (_) {}
+                        try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
+                    }
+                });
+
+                // Prevent the send button from stealing focus (which collapses mobile keyboard)
+                try {
+                    const sendBtn = document.getElementById('sendBtn');
+                    if (sendBtn) {
+                        sendBtn.addEventListener('mousedown', (ev) => { ev.preventDefault(); });
+                        sendBtn.addEventListener('touchstart', (ev) => { ev.preventDefault(); });
+                        const sendHandler = (ev) => {
+                            ev.preventDefault();
+                            this.sendMessage();
+                            try { this.messageInput.focus(); } catch (_) {}
+                            try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
+                        };
+                        sendBtn.addEventListener('click', sendHandler);
+                        sendBtn.addEventListener('touchend', sendHandler);
+                    }
+                } catch (_) {}
+
+                this.messageInput.addEventListener('input', async () => {
+                    // Send typing signal for the CURRENT user
+                    try {
+                        await fetch('/api/typing/ping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                        });
+                    } catch (e) {}
+
+                    // Start/refresh heartbeat while user continues typing
+                    if (this.typingHeartbeat) clearInterval(this.typingHeartbeat);
+                    this.typingHeartbeat = setInterval(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
+                    }, 1000);
+                    clearTimeout(this.typingTimeout);
+                    this.typingTimeout = setTimeout(async () => {
+                        try {
+                            await fetch('/api/typing/ping', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_session_id: '{{ friendship.chat_session_id }}', typer_id: this.currentUserId })
+                            });
+                        } catch (e) {}
+                        if (this.typingHeartbeat) {
+                            clearInterval(this.typingHeartbeat);
+                            this.typingHeartbeat = null;
+                        }
+                    }, 1200);
+                });
+            }
+
+            setupScrollDetection() {
+                // Detect when user scrolls to determine if they're at bottom
+                this.chatMessages.addEventListener('scroll', () => {
+                    const { scrollTop, scrollHeight, clientHeight } = this.chatMessages;
+                    // User is at bottom if they're within 50px of the bottom
+                    this.isUserAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+                    
+                    // Clear any pending auto-scroll timeouts when user manually scrolls
+                    // This prevents auto-scroll from interrupting user's reading
+                    if (this.autoScrollTimeout) {
+                        clearTimeout(this.autoScrollTimeout);
+                        this.autoScrollTimeout = null;
+                    }
+
+                    // Near top: expand window upwards to lazy-load older messages
+                    if (scrollTop <= 40) {
+                        this.expandOlderWindow();
+                    }
+                });
+            }
+
+            async loadMessages() {
+                try {
+                    const response = await fetch(`/api/messages/${this.otherUserId}`);
+                    if (response.ok) {
+                        const messages = await response.json();
+                        this.messages = messages;
+                        this.updateRenderWindowToLatest();
+                        this.displayMessages();
+                        
+                        // Set last timestamp for incremental updates
+                        if (messages.length > 0) {
+                            this.lastMessageTimestamp = messages[messages.length - 1].timestamp;
+                        }
+                        
+                        // Only scroll to bottom on first load
+                        this.scrollToBottom(true);
+                        this.lastMessageCount = messages.length;
+                    }
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                }
+            }
+
+            async sendMessage() {
+                const content = this.messageInput.value.trim();
+                if (!content) return;
+
+                // Clear input immediately for better UX
+                this.messageInput.value = '';
+
+                // Create temporary message for instant display
+                const tempMessage = {
+                    id: 'temp_' + Date.now(),
+                    content: content,
+                    message_type: 'text',
+                    sender_id: this.currentUserId,
+                    receiver_id: this.otherUserId,
+                    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                    is_temp: true
+                };
+
+                // Add to pending messages
+                this.pendingMessages.set(tempMessage.id, tempMessage);
+
+                // Display message immediately
+                this.messages.push(tempMessage);
+                this.updateRenderWindowToLatest();
+                this.displayMessages();
+                
+                // Always scroll to bottom when user sends a message
+                this.scrollToBottom(true);
+                this.isUserAtBottom = true;
+                
+                // Re-focus input to keep mobile keyboard open
+                try { this.messageInput.focus(); } catch (_) {}
+                try { const len = this.messageInput.value.length; this.messageInput.setSelectionRange(len, len); } catch (_) {}
+
+                // Add to message queue for sending
+                this.messageQueue.push({
+                    content: content,
+                    message_type: 'text',
+                    receiver_id: this.otherUserId
+                });
+
+                // Process queue if not already processing
+                if (!this.isProcessingQueue) {
+                    this.processMessageQueue();
+                }
+            }
+
+            async processMessageQueue() {
+                if (this.isProcessingQueue || this.messageQueue.length === 0) return;
+                
+                this.isProcessingQueue = true;
+                
+                while (this.messageQueue.length > 0) {
+                    const messageData = this.messageQueue.shift();
+                    
+                    try {
+                        const response = await fetch('/api/messages/send', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(messageData)
+                        });
+
+                        if (response.ok) {
+                            const sentMessage = await response.json();
+                            
+                            // Update the temporary message with real data
+                            const tempIndex = this.messages.findIndex(msg => 
+                                msg.is_temp && msg.content === messageData.content
+                            );
+                            
+                            if (tempIndex !== -1) {
+                                this.messages[tempIndex] = {
+                                    ...this.messages[tempIndex],
+                                    id: sentMessage.id,
+                                    is_temp: false
+                                };
+                                
+                                // Remove from pending
+                                this.pendingMessages.delete(this.messages[tempIndex].id);
+                            }
+                            
+                            this.updateRenderWindowToLatest();
+                            this.displayMessages();
+                        }
+                    } catch (error) {
+                        console.error('Error sending message:', error);
+                        // Re-add to queue for retry
+                        this.messageQueue.unshift(messageData);
+                    }
+                }
+                
+                this.isProcessingQueue = false;
+            }
+
+            installVisibilityHooks() {
+                const burst = () => this.startReadBurst();
+                window.addEventListener('focus', burst);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') burst();
+                });
+            }
+
+            setupTypingSocket() {
+                try {
+                    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+                    const wsUrl = `${proto}://${location.host}/ws/typing/{{ friendship.chat_session_id }}`;
+                    this.typingWS = new WebSocket(wsUrl);
+                    this.typingWS.onmessage = (evt) => {
+                        try {
+                            const payload = JSON.parse(evt.data);
+                            if (payload.type === 'typing' && Number(payload.user_id) !== Number(this.currentUserId)) {
+                                this.otherIsTypingUntil = Date.now() + 2000;
+                                const existing = document.querySelector('.typing-indicator');
+                                if (!existing) {
+                                    const typingIndicator = document.createElement('div');
+                                    typingIndicator.className = 'typing-indicator';
+                                    typingIndicator.innerHTML = `
+                                        <div class="typing-anim">
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-circle"></div>
+                                            <div class="typing-shadow"></div>
+                                            <div class="typing-shadow"></div>
+                                            <div class="typing-shadow"></div>
+                                        </div>`;
+                                    this.chatMessages.appendChild(typingIndicator);
+                                    
+                                    // Only scroll for typing indicator if user is at bottom
+                                    // This prevents interrupting user when they're reading history
+                                    if (this.isUserAtBottom) {
+                                        this.scrollToBottom(true);
+                                    }
+                                }
+                                clearTimeout(this.wsTypingTimeout);
+                                this.wsTypingTimeout = setTimeout(() => {
+                                    const ex = document.querySelector('.typing-indicator');
+                                    if (ex) ex.remove();
+                                }, 2200);
+                            }
+                        } catch (_) {}
+                    };
+                } catch (e) {}
+            }
+
+            async checkForNewMessages() {
+                try {
+                    const url = this.lastMessageTimestamp 
+                        ? `/api/messages/${this.otherUserId}/latest?last_timestamp=${encodeURIComponent(this.lastMessageTimestamp)}`
+                        : `/api/messages/${this.otherUserId}/latest`;
+                    
+                    const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
+                    if (response.ok) {
+                        const payload = await response.json();
+                        const newMessages = Array.isArray(payload) ? payload : (payload.messages || []);
+                        const readIdsSide = Array.isArray(payload.read_ids) ? payload.read_ids : [];
+
+                        if (newMessages.length > 0) {
+                            const atBottom = this.isNearBottom(80);
+                            // Add only truly new messages; render via batched update
+                            for (const newMsg of newMessages) {
+                                if (!this.messages.some(msg => msg.id === newMsg.id)) {
+                                    this.messages.push(newMsg);
+                                }
+                            }
+                            this.updateRenderWindowToLatest();
+                            this.displayMessages();
+                            
+                            // Only auto-scroll for incoming messages if user is at bottom
+                            // Never auto-scroll for outgoing messages or when user is reading history
+                            const incomingMessages = newMessages.filter(m => Number(m.sender_id) === Number(this.otherUserId));
+                            if (incomingMessages.length > 0 && atBottom) {
+                                this.scrollToBottom(true);
+                            }
+                            
+                            // Notify for incoming messages from the other user
+                            if (incomingMessages.length > 0) {
+                                const last = incomingMessages[incomingMessages.length - 1];
+                                this.notifyNewMessage(this.otherUser, last.content || 'New message');
+                            }
+                            
+                            // Update timestamp
+                            this.lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
+                            this.lastMessageCount = this.messages.length;
+                        }
+
+                        // Process read receipts without causing scrolling (no full re-render)
+                        if (readIdsSide.length > 0) {
+                            for (const id of readIdsSide) {
+                                const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                                if (idx !== -1) this.messages[idx].is_read = true;
+                                const node = this.chatMessages.querySelector(`[data-message-id="${id}"] .message-status`);
+                                if (node && !node.classList.contains('read')) {
+                                    node.classList.remove('unread');
+                                    node.classList.add('read');
+                                    node.innerHTML = '<i class="fas fa-check-double"></i> Read';
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking for new messages:', error);
+                }
+            }
+
+            renderMessageHTML(message) {
+                const isOwn = message.sender_id === this.currentUserId;
+                const messageClass = isOwn ? 'message own' : 'message';
+                const utcDate = new Date(message.timestamp + 'Z');
+                const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                const isRead = Boolean(message.is_read);
+                const statusClass = isRead ? 'read' : 'unread';
+                const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                const statusText = isRead ? 'Read' : 'Sent';
+                const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+                const contentHTML = (message.message_type === 'image')
+                    ? `<img src="${message.content}" alt="image" style="max-width: 260px; border-radius: 12px; display:block;"/>`
+                    : (message.message_type === 'file'
+                        ? `<a href="${message.content}" target="_blank" rel="noopener">${message.content.split('/').pop()}</a>`
+                        : this.linkify(message.content));
+                return {
+                    outerClass: `${messageClass} ${message.is_temp ? 'message-sending' : 'message-sent'}`,
+                    inner: `
+                        <div class="message-info">
+                            ${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}
+                        </div>
+                        <div class="message-content">
+                            ${contentHTML}
+                            ${isOwn ? `<div class="message-status ${statusClass}"><i class="${statusIcon}"></i> ${statusText}</div>` : ''}
+                        </div>`
+                };
+            }
+
+            displayMessages() {
+                // Batch DOM writes per frame using a DocumentFragment
+                if (this._renderScheduled) return;
+                this._renderScheduled = true;
+                const cm = this.chatMessages;
+                const prevScrollHeight = cm.scrollHeight;
+                const prevScrollTop = cm.scrollTop;
+                const mode = this._pendingScrollMode;
+                this._pendingScrollMode = null;
+
+                window.requestAnimationFrame(() => {
+                    if (this.messages.length === 0) {
+                        cm.innerHTML = `
+                            <div class="text-center text-muted mt-4">
+                                <i class="fas fa-comments fa-2x mb-2"></i>
+                                <p>Start your conversation with ${this.otherUser}!</p>
+                            </div>
+                        `;
+                        this._renderScheduled = false;
+                        return;
+                    }
+
+                    const fragment = document.createDocumentFragment();
+                    // Preserve floating go-to-bottom button if it lives inside the container
+                    const goBtn = document.getElementById('goToBottomBtn');
+                    const start = Math.max(0, this.renderStartIndex);
+                    const end = Math.max(start, Math.min(this.messages.length, this.renderEndIndex));
+                    for (let i = start; i < end; i++) {
+                        const message = this.messages[i];
+                        const isOwn = message.sender_id === this.currentUserId;
+                        const messageClass = isOwn ? 'message own' : 'message';
+                        const utcDate = new Date(message.timestamp + 'Z');
+                        const time = utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                        const isRead = Boolean(message.is_read);
+                        const statusClass = isRead ? 'read' : 'unread';
+                        const statusIcon = isRead ? 'fas fa-check-double' : 'fas fa-check';
+                        const messageStatus = message.is_temp ? 'message-sending' : 'message-sent';
+                        const tempIndicator = message.is_temp ? '<small class="text-muted">(sending...)</small>' : '';
+
+                        const wrapper = document.createElement('div');
+                        wrapper.className = `${messageClass} ${messageStatus}`;
+                        wrapper.setAttribute('data-message-id', message.id);
+
+                        const info = document.createElement('div');
+                        info.className = 'message-info';
+                        info.innerHTML = `${!isOwn ? `<strong>${this.otherUser}</strong> • ` : ''}${time} ${tempIndicator}`;
+
+                        const content = document.createElement('div');
+                        content.className = 'message-content';
+                        if (message.message_type === 'image') {
+                            const img = document.createElement('img');
+                            img.src = message.content;
+                            img.alt = 'image';
+                            img.style.maxWidth = '260px';
+                            img.style.borderRadius = '12px';
+                            img.style.display = 'block';
+                            content.appendChild(img);
+                        } else if (message.message_type === 'file') {
+                            const a = document.createElement('a');
+                            a.href = message.content;
+                            a.target = '_blank';
+                            a.rel = 'noopener';
+                            a.textContent = (message.content || '').split('/').pop();
+                            content.appendChild(a);
+                        } else {
+                            const span = document.createElement('span');
+                            span.innerHTML = this.linkify(message.content || '');
+                            content.appendChild(span);
+                        }
+                        if (isOwn) {
+                            const status = document.createElement('div');
+                            status.className = `message-status ${statusClass}`;
+                            status.title = isRead ? 'Read' : 'Sent';
+                            status.innerHTML = `<i class="${statusIcon}"></i>`;
+                            content.appendChild(status);
+                        }
+
+                        wrapper.appendChild(info);
+                        wrapper.appendChild(content);
+                        fragment.appendChild(wrapper);
+                    }
+
+                    const typingExisting = document.querySelector('.typing-indicator');
+                    cm.innerHTML = '';
+                    cm.appendChild(fragment);
+                    if (typingExisting) cm.appendChild(typingExisting);
+                    if (goBtn) cm.appendChild(goBtn);
+
+                    if (mode === 'bottom') {
+                        this.scrollToBottom(true);
+                    } else if (mode === 'preserve-delta') {
+                        try {
+                            const newScrollHeight = cm.scrollHeight;
+                            const delta = newScrollHeight - prevScrollHeight;
+                            cm.scrollTop = prevScrollTop + delta;
+                        } catch (_) {}
+                    }
+
+                    this._renderScheduled = false;
+                });
+            }
+
+            updateRenderWindowToLatest() {
+                const total = this.messages.length;
+                this.renderEndIndex = total;
+                this.renderStartIndex = Math.max(0, total - this.renderWindowSize);
+                this._pendingScrollMode = 'bottom';
+            }
+
+            expandOlderWindow(chunk = 50) {
+                if (this.renderStartIndex <= 0) return;
+                const prevStart = this.renderStartIndex;
+                this.renderStartIndex = Math.max(0, this.renderStartIndex - chunk);
+                // Keep end index as-is (window grows upward)
+                this.renderEndIndex = Math.max(this.renderEndIndex, prevStart + (this.renderEndIndex - prevStart));
+                this._pendingScrollMode = 'preserve-delta';
+                this.displayMessages();
+            }
+
+            async pollTyping() {
+                try {
+                    const res = await fetch(`/api/typing/state?chat_session_id={{ friendship.chat_session_id }}&other_id={{ other_user.id }}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const existing = document.querySelector('.typing-indicator');
+                    if (data.is_typing) {
+                        this.otherIsTypingUntil = Date.now() + 2000;
+                        if (!existing) {
+                            const typingIndicator = document.createElement('div');
+                            typingIndicator.className = 'typing-indicator';
+                            typingIndicator.innerHTML = `
+                                <div class="typing-anim">
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-circle"></div>
+                                    <div class="typing-shadow"></div>
+                                    <div class="typing-shadow"></div>
+                                    <div class="typing-shadow"></div>
+                                </div>`;
+                            this.chatMessages.appendChild(typingIndicator);
+                            
+                            // Only scroll for typing if user is at bottom
+                            // This prevents interrupting user when they're reading history
+                            if (this.isUserAtBottom) {
+                                this.scrollToBottom(true);
+                            }
+                        }
+                    } else {
+                        // keep indicator a bit to avoid flicker
+                        if (existing && Date.now() > this.otherIsTypingUntil) existing.remove();
+                    }
+                } catch (e) {}
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            linkify(text) {
+                const escaped = this.escapeHtml(text);
+                const urlPattern = /((https?:\/\/|www\.)[\w.-]+\.[a-zA-Z]{2,}(\/[\w\-.~:%\/?#\[\]@!$&'()*+,;=]*)?)/g;
+                const withLinks = escaped.replace(urlPattern, (match) => {
+                    const href = match.startsWith('http') ? match : `https://${match}`;
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+                });
+                const withMentions = withLinks.replace(/(^|\s)@([a-zA-Z0-9_\.]{3,30})/g, (m, pre, uname) => {
+                    const href = `/@${uname}`;
+                    return `${pre}<a class="pf-mention" href="${href}">@${uname}</a>`;
+                });
+                return withMentions.replace(/\n/g, '<br>');
+            }
+
+            scrollToBottom(force = false) {
+                if (!this.chatMessages) return;
+                
+                // Clear any existing auto-scroll timeout
+                if (this.autoScrollTimeout) {
+                    clearTimeout(this.autoScrollTimeout);
+                }
+                
+                // Use timeout to prevent rapid successive scroll calls
+                // This makes scrolling more natural and prevents flickering
+                this.autoScrollTimeout = setTimeout(() => {
+                    try {
+                        this.chatMessages.scrollTo({
+                            top: this.chatMessages.scrollHeight,
+                            behavior: force ? 'auto' : 'smooth'
+                        });
+                    } catch (e) {
+                        // Fallback for older browsers
+                        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                    }
+                    this.autoScrollTimeout = null;
+                }, force ? 0 : 50); // Immediate for force, small delay for smooth
+            }
+
+            isNearBottom(thresholdPx = 80) {
+                if (!this.chatMessages) return true;
+                const distanceFromBottom = this.chatMessages.scrollHeight - this.chatMessages.scrollTop - this.chatMessages.clientHeight;
+                return distanceFromBottom <= thresholdPx;
+            }
+
+            maybeAutoScroll(force = false) {
+                if (force || this.isNearBottom()) {
+                    this.scrollToBottom(true);
+                }
+            }
+
+            startMessagePolling() {
+                // Keep ultra-fast polling for instant updates
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        this.checkForNewMessages();
+                    }
+                }, 400);
+                
+                // Poll other user's typing status every 1 second for responsiveness
+                setInterval(() => { 
+                    if (document.visibilityState === 'visible') {
+                        this.pollTyping(); 
+                    }
+                }, 1000);
+                
+                // Poll read receipts every 400ms for instant feedback
+                setInterval(() => { 
+                    if (document.visibilityState === 'visible') {
+                        this.pollReadReceipts(); 
+                    }
+                }, 400);
+                
+                // Short burst right after opening
+                this.startReadBurst();
+            }
+
+            async recoverLostMessages() {
+                try {
+                    // If we have messages but no timestamp, reload all messages
+                    if (this.messages.length > 0 && !this.lastMessageTimestamp) {
+                        console.log('Recovering lost messages - no timestamp available');
+                        await this.loadMessages();
+                        return;
+                    }
+                    
+                    // Check if we're missing recent messages by comparing with server
+                    const response = await fetch(`/api/messages/${this.otherUserId}/latest`, { 
+                        headers: { 'Cache-Control': 'no-cache' }, 
+                        credentials: 'same-origin' 
+                    });
+                    if (response.ok) {
+                        const payload = await response.json();
+                        const serverMessages = Array.isArray(payload) ? payload : (payload.messages || []);
+                        
+                        if (serverMessages.length > 0) {
+                            const lastServerMsg = serverMessages[serverMessages.length - 1];
+                            const lastLocalMsg = this.messages[this.messages.length - 1];
+                            
+                            // If server has newer messages than we do, reload
+                            if (!lastLocalMsg || new Date(lastServerMsg.timestamp) > new Date(lastLocalMsg.timestamp)) {
+                                console.log('Recovering lost messages - server has newer data');
+                                await this.loadMessages();
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in message recovery:', error);
+                }
+            }
+
+            async pollReadReceipts() {
+                try {
+                    const res = await fetch(`/api/messages/${this.otherUserId}/read-receipts?since=${this.lastRRCheckTs}&t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' }, credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (Array.isArray(data.read_ids) && data.read_ids.length > 0) {
+                        // Mark corresponding outgoing messages as read in UI
+                        let needsUpdate = false;
+                        for (const id of data.read_ids) {
+                            const idx = this.messages.findIndex(m => Number(m.id) === Number(id));
+                            if (idx !== -1 && !this.messages[idx].is_read) {
+                                this.messages[idx].is_read = true;
+                                needsUpdate = true;
+                            }
+                        }
+                        // Only update UI if read status actually changed
+                        // This prevents unnecessary DOM updates that cause flickering
+                        if (needsUpdate) {
+                            this.displayMessages();
+                        }
+                    }
+                    if (typeof data.latest === 'number') this.lastRRCheckTs = data.latest;
+                } catch (e) {}
+            }
+
+            startReadBurst() {
+                const start = Date.now();
+                const burstInterval = setInterval(async () => {
+                    await this.pollReadReceipts();
+                    if (Date.now() - start > 3000) clearInterval(burstInterval);
+                }, 200);
+            }
+
+            setupMessageQueue() {
+                // Process message queue every 100ms for smooth sending
+                setInterval(() => {
+                    if (this.messageQueue.length > 0 && !this.isProcessingQueue) {
+                        this.processMessageQueue();
+                    }
+                }, 100);
+            }
+
+            notifyNewMessage(fromName, text) {
+                try {
+                    const body = String(text).slice(0, 120);
+                    if (document.visibilityState === 'hidden' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                        const n = new Notification(`${fromName}`, { body });
+                        setTimeout(() => { try { n.close(); } catch (_) {} }, 4000);
+                    }
+                    // Play a short tone when page is visible or hidden (browsers require user gesture; will work after first interaction)
+                    this.playTone();
+                } catch (_) {}
+            }
+
+            playTone() {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!this._audioCtx) this._audioCtx = new AudioCtx();
+                    const ctx = this._audioCtx;
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = 880;
+                    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+                    o.connect(g).connect(ctx.destination);
+                    o.start();
+                    o.stop(ctx.currentTime + 0.32);
+                } catch (_) {}
+            }
+        }
+
+        // File attachment functionality
+        function attachFile() {
+            document.getElementById('fileInput').click();
+        }
+
+        // Handle file selection
+        document.getElementById('fileInput').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch('/api/chat/upload', { method: 'POST', body: fd });
+                const out = await res.json();
+                if (!res.ok || !out.url) { alert(out.error || 'Upload failed'); return; }
+                // Send as an image or file message
+                const isImage = /^.*\.(png|jpe?g|gif|webp)$/i.test(file.name);
+                const payload = {
+                    content: out.url,
+                    message_type: isImage ? 'image' : 'file',
+                    receiver_id: window.ultraFastChatApp.otherUserId
+                };
+                await fetch('/api/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                // Optimistic UI: add temporary message
+                const temp = {
+                    id: 'temp_' + Date.now(),
+                    content: out.url,
+                    message_type: payload.message_type,
+                    sender_id: window.ultraFastChatApp.currentUserId,
+                    receiver_id: window.ultraFastChatApp.otherUserId,
+                    timestamp: new Date().toISOString().replace('T',' ').substring(0,19),
+                    is_temp: true
+                };
+                window.ultraFastChatApp.messages.push(temp);
+                window.ultraFastChatApp.updateRenderWindowToLatest();
+                window.ultraFastChatApp.displayMessages();
+                window.ultraFastChatApp.scrollToBottom(true);
+            } catch (e) {
+                alert('Upload failed');
+            } finally {
+                // Reset file input
+                event.target.value = '';
+            }
+        });
+
+        // Initialize ultra-fast chat app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add chat-active class to body to prevent page scrolling and hide bottom nav
+            document.body.classList.add('chat-active');
+            window.ultraFastChatApp = new UltraFastChatApp();
+            
+            const chatMessages = document.getElementById('chatMessages');
+            const goBtn = document.getElementById('goToBottomBtn');
+            const sendBtn = document.getElementById('sendBtn');
+            // Ensure chat info offcanvas opens reliably
+            try {
+                const infoBtn = document.getElementById('openChatInfoBtn');
+                const panelEl = document.getElementById('chatInfoPanel');
+                if (infoBtn && panelEl && window.bootstrap && window.bootstrap.Offcanvas) {
+                    infoBtn.addEventListener('click', function(e){
+                        try {
+                            const oc = bootstrap.Offcanvas.getOrCreateInstance(panelEl);
+                            oc.show();
+                        } catch (_) {}
+                    });
+                }
+            } catch (_) {}
+            function isNearBottom(el, thresholdPx = 40) {
+                if (!el) return true;
+                const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+                return distance <= thresholdPx;
+            }
+            if (chatMessages && goBtn) {
+                chatMessages.addEventListener('scroll', () => {
+                    if (isNearBottom(chatMessages)) {
+                        goBtn.style.display = 'none';
+                    } else {
+                        goBtn.style.display = '';
+                    }
+                });
+                goBtn.addEventListener('click', () => {
+                    try { chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }); } catch (e) { chatMessages.scrollTop = chatMessages.scrollHeight; }
+                });
+            }
+            if (sendBtn) {
+                sendBtn.addEventListener('click', () => {
+                    window.ultraFastChatApp.sendMessage();
+                    // Keep focus on input after sending
+                    try { document.getElementById('messageInput').focus(); } catch (_) {}
+                });
+            }
+            
+        });
+
+        // Clean up when leaving the page
+        window.addEventListener('beforeunload', () => {
+            document.body.classList.remove('chat-active');
+        });
+    </script>
+</body>
+<style>
+/***** Chat Info Sheet Fallback *****/
+.chat-info-sheet{position:fixed;top:0;right:0;bottom:0;width:min(92vw,380px);background:var(--white);color:var(--black);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .2s ease;z-index:1055;display:flex;flex-direction:column}
+.chat-info-sheet.show{transform:translateX(0)}
+.chat-info-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);z-index:1050;display:none}
+.chat-info-backdrop.show{display:block}
+.chat-info-sheet .sheet-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.chat-info-sheet .sheet-body{padding:16px;overflow:auto}
+</style>
+<div id="chatInfoBackdrop" class="chat-info-backdrop" role="presentation" aria-hidden="true"></div>
+<div id="chatInfoSheet" class="chat-info-sheet" role="dialog" aria-modal="true" aria-labelledby="chatInfoLabelFallback">
+  <div class="sheet-header" style="background: var(--black); color: var(--white);">
+    <h5 id="chatInfoLabelFallback" class="mb-0">Chat Info</h5>
+    <button type="button" class="btn btn-sm btn-outline-light" id="closeChatInfoSheet" aria-label="Close">✕</button>
+  </div>
+  <div class="sheet-body" style="background: var(--black); color: var(--white);">
+    <div class="mb-4">
+      <h6 class="mb-2">Controls</h6>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn btn-secondary btn-sm" id="muteChatBtn_f"><i class="fas fa-bell-slash me-2"></i>Mute</button>
+        <button class="btn btn-outline-secondary btn-sm" id="pinChatBtn_f"><i class="fas fa-thumbtack me-2"></i>Pin</button>
+        <button class="btn btn-outline-danger btn-sm" id="clearChatBtnPanel_f"><i class="fas fa-trash me-2"></i>Clear chat</button>
+        <button class="btn btn-outline-dark btn-sm" id="removeFromDashboardBtn_f"><i class="fas fa-eye-slash me-2"></i>Remove from dashboard</button>
+      </div>
+    </div>
+    <div class="mb-4">
+      <h6 class="mb-2">Media</h6>
+      <div>
+        <div class="small text-muted mb-1">Pictures</div>
+        <div id="chatPictures_f" class="d-flex flex-wrap gap-2"></div>
+      </div>
+      <div class="mt-3">
+        <div class="small text-muted mb-1">Files</div>
+        <div id="chatFiles_f" class="d-flex flex-column gap-1"></div>
+      </div>
+    </div>
+    <div>
+      <h6 class="mb-2">Tools</h6>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn btn-outline-light btn-sm" id="summarizeSelectionBtn_f"><i class="fas fa-align-left me-2"></i>Summarize selected</button>
+        <button class="btn btn-outline-light btn-sm" id="createTodoFromSelectionBtn_f"><i class="fas fa-list-check me-2"></i>Create todo from selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    const infoBtn = document.getElementById('openChatInfoBtn');
+    const ocEl = document.getElementById('chatInfoPanel');
+    const sheet = document.getElementById('chatInfoSheet');
+    const backdrop = document.getElementById('chatInfoBackdrop');
+    const closeBtn = document.getElementById('closeChatInfoSheet');
+
+    function openSheet(){ sheet.classList.add('show'); backdrop.classList.add('show'); }
+    function closeSheet(){ sheet.classList.remove('show'); backdrop.classList.remove('show'); }
+
+    if (infoBtn) {
+      infoBtn.addEventListener('click', function(e){
+        try {
+          if (window.bootstrap && window.bootstrap.Offcanvas && ocEl) {
+            const oc = bootstrap.Offcanvas.getOrCreateInstance(ocEl);
+            oc.show();
+          } else {
+            openSheet();
+          }
+        } catch { openSheet(); }
+      });
+    }
+    if (backdrop) backdrop.addEventListener('click', closeSheet);
+    if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape') closeSheet(); });
+
+    // Wire Clear Chat in fallback panel to existing handler
+    const clearFallback = document.getElementById('clearChatBtnPanel_f');
+    if (clearFallback) {
+      clearFallback.addEventListener('click', function(){
+        const btnPanelClear = document.getElementById('clearChatBtnPanel');
+        if (btnPanelClear) btnPanelClear.click();
+      });
+    }
+  });
+})();
+</script>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ChatApp{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/fav.png') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="navbar-meow" id="topNav">
+        <div class="inner">
+            <a class="brand" href="{{ url_for('dashboard') }}">
+                <img src="{{ url_for('static', filename='images/nav.png') }}" alt="meowCHAT"/>
+            </a>
+            <div class="actions position-relative">
+                <!-- Remove profile button from top nav since it's now in bottom nav -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content-wrapper">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav" id="bottomNav">
+        <div class="bottom-nav-inner">
+            <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+            </a>
+            <a href="{{ url_for('messaging') }}" class="nav-item {% if request.endpoint == 'messaging' %}active{% endif %}">
+                <i class="fas fa-comment"></i>
+            </a>
+            <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
+                <i class="fas fa-bell"></i>
+            </a>
+            <a href="{{ get_profile_url(user) }}" class="nav-item {% if request.endpoint in ['profile', 'view_user_profile_by_username', 'view_user_profile_by_username_alt', 'view_user_profile'] %}active{% endif %}">
+                <div class="profile-avatar-small">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture }}" alt="Profile"/>
+                    {% else %}
+                        <i class="fas fa-user"></i>
+                    {% endif %}
+                </div>
+            </a>
+        </div>
+    </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            const root = document.documentElement;
+            root.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
