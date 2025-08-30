@@ -468,12 +468,19 @@ body.chat-active .bottom-nav {
 .navbar-meow .inner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     height: 56px;
     padding: 0 var(--space-5);
+    position: relative;
 }
 .navbar-meow .brand img { height: 28px; display: block; }
-.navbar-meow .actions { display: flex; align-items: center; gap: var(--space-3); }
+.navbar-meow .actions { 
+    display: flex; 
+    align-items: center; 
+    gap: var(--space-3); 
+    position: absolute;
+    right: var(--space-5);
+}
 .navbar-meow .avatar-btn { border: none; background: transparent; padding: 0; display: flex; align-items: center; cursor: pointer; }
 .navbar-meow .avatar-btn img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
 
