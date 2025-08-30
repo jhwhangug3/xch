@@ -452,6 +452,32 @@ def dashboard():
     
     return render_template('dashboard.html', user=user, friends=friends, pending_requests=pending_requests)
 
+# Messaging Page
+@app.route('/messaging')
+def messaging():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    friends = get_user_friends(session['user_id'])
+    
+    return render_template('messaging.html', user=user, friends=friends)
+
+# Notifications Page
+@app.route('/notifications')
+def notifications():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    # Get pending friend requests as notifications
+    pending_requests = FriendRequest.query.filter_by(
+        receiver_id=session['user_id'], 
+        status='pending'
+    ).all()
+    
+    return render_template('notifications.html', user=user, pending_requests=pending_requests)
+
 # Profile Management
 @app.route('/profile')
 def profile():
