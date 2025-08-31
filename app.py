@@ -297,6 +297,51 @@ class PushSubscription(db.Model):
     auth = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('posts', lazy='dynamic', cascade='all, delete-orphan'))
+    likes = db.relationship('PostLike', backref='post', lazy='dynamic', cascade='all, delete-orphan')
+    comments = db.relationship('PostComment', backref='post', lazy='dynamic', cascade='all, delete-orphan')
+    reposts = db.relationship('PostRepost', backref='post', lazy='dynamic', cascade='all, delete-orphan')
+
+class PostLike(db.Model):
+    __tablename__ = 'post_likes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), index=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Ensure unique like per user per post
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)
+
+class PostComment(db.Model):
+    __tablename__ = 'post_comments'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), index=True, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('comments', lazy='dynamic', cascade='all, delete-orphan'))
+
+class PostRepost(db.Model):
+    __tablename__ = 'post_reposts'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True, nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), index=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Ensure unique repost per user per post
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_repost'),)
+
 # Routes
 @app.context_processor
 def inject_user_context():
@@ -477,6 +522,15 @@ def notifications():
     ).all()
     
     return render_template('notifications.html', user=user, pending_requests=pending_requests)
+
+# Create Post Page
+@app.route('/create-post')
+def create_post():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = User.query.get(session['user_id'])
+    return render_template('create_post.html', current_user=user)
 
 # Profile Management
 @app.route('/profile')
@@ -1729,6 +1783,452 @@ def upload_chat_attachment():
     f.save(path)
     url = url_for('serve_upload', filename=f"chat/{safe_name}")
     return jsonify({'url': url})
+
+# Create Post API
+@app.route('/api/posts/create', methods=['POST'])
+def create_post_api():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    if not data or 'content' not in data:
+        return jsonify({'error': 'Content is required'}), 400
+    
+    content = data['content'].strip()
+    if not content:
+        return jsonify({'error': 'Content cannot be empty'}), 400
+    
+    if len(content) > 280:
+        return jsonify({'error': 'Post content cannot exceed 280 characters'}), 400
+    
+    try:
+        post = Post(
+            user_id=session['user_id'],
+            content=content
+        )
+        db.session.add(post)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'post_id': post.id,
+            'message': 'Post created successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create post'}), 500
+
+# Like/Unlike Post API
+@app.route('/api/posts/<int:post_id>/like', methods=['POST'])
+def toggle_post_like(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        post = Post.query.get_or_404(post_id)
+        existing_like = PostLike.query.filter_by(
+            user_id=session['user_id'], 
+            post_id=post_id
+        ).first()
+        
+        if existing_like:
+            # Unlike
+            db.session.delete(existing_like)
+            liked = False
+        else:
+            # Like
+            like = PostLike(user_id=session['user_id'], post_id=post_id)
+            db.session.add(like)
+            liked = True
+        
+        db.session.commit()
+        
+        # Get updated like count
+        like_count = post.likes.count()
+        
+        return jsonify({
+            'success': True,
+            'liked': liked,
+            'like_count': like_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to toggle like'}), 500
+
+# Comment on Post API
+@app.route('/api/posts/<int:post_id>/comment', methods=['POST'])
+def comment_on_post(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    if not data or 'content' not in data:
+        return jsonify({'error': 'Comment content is required'}), 400
+    
+    content = data['content'].strip()
+    if not content:
+        return jsonify({'error': 'Comment cannot be empty'}), 400
+    
+    if len(content) > 280:
+        return jsonify({'error': 'Comment cannot exceed 280 characters'}), 400
+    
+    try:
+        post = Post.query.get_or_404(post_id)
+        comment = PostComment(
+            user_id=session['user_id'],
+            post_id=post_id,
+            content=content
+        )
+        db.session.add(comment)
+        db.session.commit()
+        
+        # Get updated comment count
+        comment_count = post.comments.count()
+        
+        print(f"Comment created: ID={comment.id}, Post={post_id}, User={session['user_id']}, Count={comment_count}")
+        
+        return jsonify({
+            'success': True,
+            'comment_id': comment.id,
+            'comment_count': comment_count,
+            'message': 'Comment added successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating comment: {str(e)}")
+        return jsonify({'error': 'Failed to add comment'}), 500
+
+# Repost/Unrepost API
+@app.route('/api/posts/<int:post_id>/repost', methods=['POST'])
+def toggle_post_repost(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        post = Post.query.get_or_404(post_id)
+        existing_repost = PostRepost.query.filter_by(
+            user_id=session['user_id'], 
+            post_id=post_id
+        ).first()
+        
+        if existing_repost:
+            # Unrepost
+            db.session.delete(existing_repost)
+            reposted = False
+        else:
+            # Repost
+            repost = PostRepost(user_id=session['user_id'], post_id=post_id)
+            db.session.add(repost)
+            reposted = True
+        
+        db.session.commit()
+        
+        # Get updated repost count
+        repost_count = post.reposts.count()
+        
+        return jsonify({
+            'success': True,
+            'reposted': reposted,
+            'repost_count': repost_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to toggle repost'}), 500
+
+# Get Comments API
+@app.route('/api/posts/<int:post_id>/comments')
+def get_post_comments(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        post = Post.query.get_or_404(post_id)
+        print(f"Found post {post_id}")
+        
+        comments = PostComment.query.filter_by(post_id=post_id)\
+            .order_by(PostComment.created_at.asc())\
+            .all()
+        
+        print(f"Found {len(comments)} comments for post {post_id}")
+        
+        comments_data = []
+        for comment in comments:
+            try:
+                user = User.query.get(comment.user_id)
+                if user:  # Make sure user exists
+                    # Check if current user can delete this comment
+                    can_delete = (comment.user_id == session['user_id'] or post.user_id == session['user_id'])
+                    
+                    comments_data.append({
+                        'id': comment.id,
+                        'content': comment.content,
+                        'created_at': comment.created_at.isoformat() + 'Z',
+                        'can_delete': can_delete,
+                        'user': {
+                            'id': user.id,
+                            'username': user.username,
+                            'first_name': user.first_name,
+                            'last_name': user.last_name,
+                            'profile_picture': user.profile_picture
+                        }
+                    })
+                else:
+                    print(f"User {comment.user_id} not found for comment {comment.id}")
+            except Exception as user_error:
+                print(f"Error processing comment {comment.id}: {str(user_error)}")
+        
+        print(f"Processed {len(comments_data)} comments for post {post_id}")
+        
+        return jsonify({
+            'success': True,
+            'comments': comments_data,
+            'total': len(comments_data)
+        })
+    except Exception as e:
+        print(f"Error fetching comments for post {post_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to fetch comments'}), 500
+
+# Update Post API
+@app.route('/api/posts/<int:post_id>/update', methods=['PUT'])
+def update_post(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        data = request.get_json()
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return jsonify({'error': 'Post content cannot be empty'}), 400
+        
+        if len(content) > 1000:  # Limit post length
+            return jsonify({'error': 'Post content too long (max 1000 characters)'}), 400
+        
+        post = Post.query.get_or_404(post_id)
+        
+        # Check if user owns the post
+        if post.user_id != session['user_id']:
+            return jsonify({'error': 'You can only edit your own posts'}), 403
+        
+        # Update the post
+        post.content = content
+        post.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Post updated successfully',
+            'content': content
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update post'}), 500
+
+# Delete Post API
+@app.route('/api/posts/<int:post_id>/delete', methods=['DELETE'])
+def delete_post(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        post = Post.query.get_or_404(post_id)
+        
+        # Check if user owns the post
+        if post.user_id != session['user_id']:
+            return jsonify({'error': 'You can only delete your own posts'}), 403
+        
+        # Delete the post (cascade will handle likes, comments, reposts)
+        db.session.delete(post)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Post deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete post'}), 500
+
+# Update Comment API
+@app.route('/api/comments/<int:comment_id>/update', methods=['PUT'])
+def update_comment(comment_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        data = request.get_json()
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return jsonify({'error': 'Comment content cannot be empty'}), 400
+        
+        if len(content) > 280:  # Limit comment length
+            return jsonify({'error': 'Comment content too long (max 280 characters)'}), 400
+        
+        comment = PostComment.query.get_or_404(comment_id)
+        
+        # Check if user owns the comment
+        if comment.user_id != session['user_id']:
+            return jsonify({'error': 'You can only edit your own comments'}), 403
+        
+        # Update the comment
+        comment.content = content
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Comment updated successfully',
+            'content': content
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update comment'}), 500
+
+# Delete Comment API
+@app.route('/api/comments/<int:comment_id>/delete', methods=['DELETE'])
+def delete_comment(comment_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        comment = PostComment.query.get_or_404(comment_id)
+        post = Post.query.get(comment.post_id)
+        
+        # Check if user owns the comment OR owns the post
+        if comment.user_id != session['user_id'] and post.user_id != session['user_id']:
+            return jsonify({'error': 'You can only delete your own comments or comments on your posts'}), 403
+        
+        # Delete the comment
+        db.session.delete(comment)
+        db.session.commit()
+        
+        # Get updated comment count
+        comment_count = post.comments.count()
+        
+        return jsonify({
+            'success': True,
+            'comment_count': comment_count,
+            'message': 'Comment deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete comment'}), 500
+
+# Get Posts API
+@app.route('/api/posts')
+def get_posts():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    user_id = request.args.get('user_id', type=int)
+    
+    try:
+        if user_id:
+            # Get posts for specific user
+            posts = Post.query.filter_by(user_id=user_id)\
+                .order_by(Post.created_at.desc())\
+                .paginate(page=page, per_page=per_page, error_out=False)
+        else:
+            # Get posts from friends for dashboard feed
+            current_user = User.query.get(session['user_id'])
+            friend_ids = [f['id'] for f in get_user_friends(session['user_id'])]
+            friend_ids.append(session['user_id'])  # Include own posts
+            
+            # Ensure we always include the current user's posts even if they have no friends
+            if not friend_ids:
+                friend_ids = [session['user_id']]
+            
+            posts = Post.query.filter(Post.user_id.in_(friend_ids))\
+                .order_by(Post.created_at.desc())\
+                .paginate(page=page, per_page=per_page, error_out=False)
+        
+        posts_data = []
+        for post in posts.items:
+            user = User.query.get(post.user_id)
+            
+            # Check if current user has interacted with this post
+            current_user_liked = PostLike.query.filter_by(
+                user_id=session['user_id'], 
+                post_id=post.id
+            ).first() is not None
+            
+            current_user_reposted = PostRepost.query.filter_by(
+                user_id=session['user_id'], 
+                post_id=post.id
+            ).first() is not None
+            
+            # Check if current user can delete this post
+            can_delete_post = (post.user_id == session['user_id'])
+            
+            # Return UTC timestamp with timezone info for proper client-side handling
+            posts_data.append({
+                'id': post.id,
+                'content': post.content,
+                'created_at': post.created_at.isoformat() + 'Z',  # Add Z to indicate UTC
+                'like_count': post.likes.count(),
+                'comment_count': post.comments.count(),
+                'repost_count': post.reposts.count(),
+                'user_liked': current_user_liked,
+                'user_reposted': current_user_reposted,
+                'can_delete': can_delete_post,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'profile_picture': user.profile_picture
+                }
+            })
+        
+        return jsonify({
+            'posts': posts_data,
+            'has_next': posts.has_next,
+            'has_prev': posts.has_prev,
+            'total': posts.total,
+            'pages': posts.pages
+        })
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch posts'}), 500
+
+# Debug endpoint to check database
+@app.route('/api/debug/comments')
+def debug_comments():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        # Check if table exists
+        total_comments = PostComment.query.count()
+        total_posts = Post.query.count()
+        total_users = User.query.count()
+        
+        # Get some sample comments
+        sample_comments = PostComment.query.limit(5).all()
+        comments_data = []
+        
+        for comment in sample_comments:
+            user = User.query.get(comment.user_id)
+            comments_data.append({
+                'id': comment.id,
+                'post_id': comment.post_id,
+                'user_id': comment.user_id,
+                'content': comment.content[:50] + '...' if len(comment.content) > 50 else comment.content,
+                'user_exists': user is not None,
+                'user_username': user.username if user else 'N/A'
+            })
+        
+        return jsonify({
+            'total_comments': total_comments,
+            'total_posts': total_posts,
+            'total_users': total_users,
+            'sample_comments': comments_data
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Geocoding proxy (avoids CORS and requires UA)
 @app.route('/api/geo/search')
