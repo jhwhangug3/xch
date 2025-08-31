@@ -37,6 +37,9 @@
             <a href="{{ url_for('messaging') }}" class="nav-item {% if request.endpoint == 'messaging' %}active{% endif %}">
                 <i class="fas fa-comment"></i>
             </a>
+            <a href="{{ url_for('create_post') }}" class="nav-item {% if request.endpoint == 'create_post' %}active{% endif %}">
+                <i class="fas fa-plus"></i>
+            </a>
             <a href="{{ url_for('notifications') }}" class="nav-item {% if request.endpoint == 'notifications' %}active{% endif %}">
                 <i class="fas fa-bell"></i>
             </a>
