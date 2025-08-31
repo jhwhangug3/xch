@@ -5,103 +5,67 @@
 {% block content %}
 <div class="dashboard-content">
     <div class="dashboard-inner">
-                                
-                                
-                                <!-- Search Users - Standard placement under navbar -->
-                                <div class="search-box mb-4">
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-transparent border-0">
-                                            <i class="fas fa-search text-muted"></i>
-                                        </span>
-                                        <input type="text" class="form-control border-0" id="userSearch" placeholder="Search for users to add as friends...">
-                                    </div>
-                                    <div class="search-results mt-2" id="searchResults" style="display: none;"></div>
-                                </div>
-                                
-                                <!-- Friend Requests: compact inline -->
-                                {% if pending_requests %}
-                                <div class="mb-3">
-                                    <h6 class="mb-2">Friend Requests</h6>
-                                    {% for request in pending_requests %}
-                                    <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <a href="{{ url_for('view_user_profile_by_username', username=request.sender.username) }}" class="text-decoration-none">
-                                                {% if request.sender.profile_picture %}
-                                                    <img src="{{ request.sender.profile_picture }}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
-                                                {% else %}
-                                                    <i class="fas fa-user-circle fa-lg"></i>
-                                                {% endif %}
-                                            </a>
-                                            <div>
-                                                <a href="{{ url_for('view_user_profile_by_username', username=request.sender.username) }}" class="text-decoration-none"><strong>{{ request.sender.username }}</strong></a>
-                                                <small class="text-muted d-block">wants to be your friend</small>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <a href="{{ url_for('handle_friend_request', request_id=request.id, action='accept') }}" class="btn btn-success btn-sm"><i class="fas fa-check"></i></a>
-                                            <a href="{{ url_for('handle_friend_request', request_id=request.id, action='reject') }}" class="btn btn-danger btn-sm"><i class="fas fa-times"></i></a>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Smart Friends Display -->
-                                <div class="friends-section">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0">Your Friends</h5>
-                                        <span class="badge bg-light text-dark">{{ friends|length }}</span>
-                                    </div>
-                                    
-                                    {% if friends %}
-                                        <div class="friends-grid">
-                                            {% for friend in friends %}
-                                            <div class="friend-item">
-                                                <a href="{{ url_for('view_user_profile_by_username', username=friend.username) }}" class="friend-avatar-link">
-                                                    <div class="friend-avatar">
-                                                        {% if friend.profile_picture %}
-                                                            <img src="{{ friend.profile_picture }}" alt="" class="rounded-circle">
-                                                        {% else %}
-                                                            <div class="avatar-placeholder">
-                                                                <i class="fas fa-user"></i>
-                                                            </div>
-                                                        {% endif %}
-                                                        {% if friend.is_online %}
-                                                            <span class="online-dot"></span>
-                                                        {% endif %}
-                                                    </div>
-                                                </a>
-                                                <a href="{{ url_for('view_user_profile_by_username', username=friend.username) }}" class="friend-info-link">
-                                                    <div class="friend-info">
-                                                        <h6 class="friend-name">{{ friend.first_name or friend.username }}</h6>
-                                                        <small class="friend-status">
-                                                            {% if friend.is_online %}
-                                                                <span class="text-success">● Online</span>
-                                                            {% else %}
-                                                                <span class="text-muted">○ Offline</span>
-                                                            {% endif %}
-                                                        </small>
-                                                    </div>
-                                                </a>
-                                                <div class="friend-actions">
-                                                    <a href="{{ url_for('direct_chat', user_id=friend.id) }}" class="btn btn-primary btn-sm" title="Start Chat">
-                                                        <i class="fas fa-comment"></i>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <div class="empty-friends text-center py-5">
-                                            <div class="empty-icon mb-3">
-                                                <i class="fas fa-users"></i>
-                                            </div>
-                                            <h6 class="text-muted">No friends yet</h6>
-                                            <p class="text-muted small">Use the search bar above to find and add friends!</p>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
+        <!-- Search Users - Standard placement under navbar -->
+        <div class="search-box mb-4">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent border-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-0" id="userSearch" placeholder="Search for users to add as friends...">
+            </div>
+            <div class="search-results mt-2" id="searchResults" style="display: none;"></div>
+        </div>
+        
+        <!-- Posts Feed -->
+        <div class="posts-feed" id="postsFeed">
+            <div class="posts-container" id="postsContainer">
+                <div class="loading-posts">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading posts...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comments Modal -->
+        <div class="comments-modal" id="commentsModal">
+            <div class="comments-backdrop" id="commentsBackdrop"></div>
+            <div class="comments-container">
+                <div class="comments-header">
+                    <h5 class="comments-title">Comments</h5>
+                    <button class="close-comments" id="closeComments">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="comments-content">
+                    <div class="original-post" id="originalPost">
+                        <!-- Original post content will be inserted here -->
+                    </div>
+                    
+                    <div class="comments-list" id="commentsList">
+                        <div class="loading-comments">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Loading comments...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comment-input-section">
+                    <div class="comment-input-container">
+                        <div class="comment-input-wrapper">
+                            <textarea 
+                                class="comment-input" 
+                                id="commentInput" 
+                                placeholder="Write a comment..."
+                                maxlength="280"
+                                rows="1"
+                            ></textarea>
+                            <button class="comment-submit-btn" id="commentSubmitBtn" disabled>
+                                Post
+                            </button>
+                        </div>
+                        <div class="comment-input-footer">
+                            <span class="char-count" id="charCount">0/280</span>
                         </div>
                     </div>
                 </div>
@@ -113,113 +77,782 @@
 
 {% block scripts %}
 <script>
-        // User Search Functionality
-        let searchTimeout;
-        const userSearch = document.getElementById('userSearch');
-        const searchResults = document.getElementById('searchResults');
+    // User Search Functionality
+    let searchTimeout;
+    const userSearch = document.getElementById('userSearch');
+    const searchResults = document.getElementById('searchResults');
 
-        userSearch.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const query = this.value.trim();
+    userSearch.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            searchUsers(query);
+        }, 300);
+    });
+
+    async function searchUsers(query) {
+        try {
+            const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+            const users = await response.json();
+            displaySearchResults(users);
+        } catch (error) {
+            console.error('Error searching users:', error);
+        }
+    }
+
+    function displaySearchResults(users) {
+        if (users.length === 0) {
+            searchResults.innerHTML = '<div class="p-3 text-muted">No users found</div>';
+        } else {
+            searchResults.innerHTML = users.map(user => `
+                <div class="search-result-item" onclick="sendFriendRequest(${user.id})">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${user.first_name || user.username}</h6>
+                            <small class="text-muted">@${user.username}</small>
+                        </div>
+                        <button class="btn btn-primary btn-sm">
+                            <i class="fas fa-user-plus me-1"></i>Add Friend
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        searchResults.style.display = 'block';
+    }
+
+    async function sendFriendRequest(userId) {
+        try {
+            const response = await fetch('/api/friends/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ receiver_id: userId })
+            });
             
-            if (query.length < 2) {
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('Friend request sent successfully!');
+                userSearch.value = '';
                 searchResults.style.display = 'none';
+            } else {
+                alert(result.error || 'Failed to send friend request');
+            }
+        } catch (error) {
+            console.error('Error sending friend request:', error);
+            alert('Failed to send friend request');
+        }
+    }
+</script>
+
+<script>
+    // Posts Feed Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const postsContainer = document.getElementById('postsContainer');
+        
+        let isLoading = false;
+        
+        // Load posts on page load
+        loadPosts();
+        
+        // Auto-refresh posts every 10 seconds to catch new posts quickly
+        setInterval(loadPosts, 10000);
+        
+        async function loadPosts() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            
+            postsContainer.innerHTML = `
+                <div class="loading-posts">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading posts...</span>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/posts?per_page=20');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayPosts(data.posts);
+                } else {
+                    throw new Error(data.error || 'Failed to load posts');
+                }
+            } catch (error) {
+                console.error('Error loading posts:', error);
+                postsContainer.innerHTML = `
+                    <div class="empty-posts">
+                        <div class="empty-posts-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="empty-posts-text">Failed to load posts</div>
+                        <div class="empty-posts-subtext">Please try refreshing the page</div>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        function displayPosts(posts) {
+            postsContainer.innerHTML = '';
+            
+            if (posts.length === 0) {
+                postsContainer.innerHTML = `
+                    <div class="empty-posts">
+                        <div class="empty-posts-icon">
+                            <i class="fas fa-feather"></i>
+                        </div>
+                        <div class="empty-posts-text">No posts yet</div>
+                        <div class="empty-posts-subtext">Posts from your friends will appear here</div>
+                    </div>
+                `;
                 return;
             }
             
-            searchTimeout = setTimeout(() => {
-                searchUsers(query);
-            }, 300);
-        });
-
-        async function searchUsers(query) {
-            try {
-                const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-                const users = await response.json();
-                displaySearchResults(users);
-            } catch (error) {
-                console.error('Error searching users:', error);
-            }
+            posts.forEach(post => {
+                const postElement = createPostElement(post);
+                postsContainer.appendChild(postElement);
+            });
         }
-
-        function displaySearchResults(users) {
-            if (users.length === 0) {
-                searchResults.innerHTML = '<div class="p-3 text-muted">No users found</div>';
-            } else {
-                searchResults.innerHTML = users.map(user => `
-                    <div class="search-result-item" onclick="sendFriendRequest(${user.id})">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">${user.first_name || user.username}</h6>
-                                <small class="text-muted">@${user.username}</small>
-                            </div>
-                            <button class="btn btn-primary btn-sm">
-                                <i class="fas fa-user-plus me-1"></i>Add Friend
-                            </button>
+        
+        function createPostElement(post) {
+            const postDiv = document.createElement('div');
+            postDiv.className = 'post-item';
+            
+            const timestamp = formatTimestamp(post.created_at);
+            const displayName = post.user.first_name || post.user.username;
+            
+            // Set initial button states
+            const likeIcon = post.user_liked ? 'fas fa-heart' : 'far fa-heart';
+            const likeClass = post.user_liked ? 'post-action-btn liked' : 'post-action-btn';
+            const repostIcon = post.user_reposted ? 'fas fa-retweet' : 'fas fa-retweet';
+            const repostClass = post.user_reposted ? 'post-action-btn retweeted' : 'post-action-btn';
+            
+            // Add three-dot menu if user can edit/delete the post
+            const threeDotMenu = post.can_delete ? `
+                <div class="post-options">
+                    <button class="post-action-btn options-btn" onclick="togglePostOptions(${post.id})" title="More options">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                    <div class="post-options-menu" id="postOptions${post.id}">
+                        <button class="option-item" onclick="editPost(${post.id})">
+                            <i class="fas fa-edit"></i>
+                            Edit Post
+                        </button>
+                        <button class="option-item delete-option" onclick="deletePost(${post.id}, this)">
+                            <i class="fas fa-trash"></i>
+                            Delete Post
+                        </button>
+                    </div>
+                </div>
+            ` : '';
+            
+            postDiv.innerHTML = `
+                <div class="post-header">
+                    <a href="/@${post.user.username}" class="post-user-avatar">
+                        ${post.user.profile_picture ? 
+                            `<img src="${post.user.profile_picture}" alt="${displayName}">` : 
+                            `<i class="fas fa-user"></i>`
+                        }
+                    </a>
+                    <div class="post-user-info">
+                        <div class="post-user-name">
+                            ${displayName}
+                            <span class="post-username">@${post.user.username}</span>
                         </div>
                     </div>
-                `).join('');
-            }
-            searchResults.style.display = 'block';
+                    <div class="post-timestamp">${timestamp}</div>
+                </div>
+                <div class="post-content">${escapeHtml(post.content)}</div>
+                <div class="post-actions">
+                    <button class="${likeClass}" onclick="likePost(${post.id}, this)" title="Like" data-post-id="${post.id}">
+                        <i class="${likeIcon}"></i>
+                        <span class="like-count">${post.like_count}</span>
+                    </button>
+                    <button class="${repostClass}" onclick="retweetPost(${post.id}, this)" title="Repost" data-post-id="${post.id}">
+                        <i class="${repostIcon}"></i>
+                        <span class="repost-count">${post.repost_count}</span>
+                    </button>
+                    <button class="post-action-btn" onclick="replyToPost(${post.id})" title="Reply">
+                        <i class="far fa-comment"></i>
+                        <span class="comment-count">${post.comment_count}</span>
+                    </button>
+                    ${threeDotMenu}
+                </div>
+            `;
+            
+            return postDiv;
         }
-
-        async function sendFriendRequest(userId) {
-            try {
-                const response = await fetch('/api/friends/request', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ receiver_id: userId })
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    alert('Friend request sent successfully!');
-                    userSearch.value = '';
-                    searchResults.style.display = 'none';
-                } else {
-                    alert(result.error || 'Failed to send friend request');
+        
+        function formatTimestamp(isoString) {
+            // Parse the UTC timestamp and convert to local time
+            const date = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'now';
+            if (diffMins < 60) return `${diffMins}m`;
+            if (diffHours < 24) return `${diffHours}h`;
+            if (diffDays < 7) return `${diffDays}d`;
+            
+            return date.toLocaleDateString();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    });
+    
+    // Post action functions
+    async function likePost(postId, buttonElement) {
+        try {
+            const response = await fetch(`/api/posts/${postId}/like`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 }
-            } catch (error) {
-                console.error('Error sending friend request:', error);
-                alert('Failed to send friend request');
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                const icon = buttonElement.querySelector('i');
+                const countSpan = buttonElement.querySelector('.like-count');
+                
+                if (data.liked) {
+                    // Like
+                    icon.className = 'fas fa-heart';
+                    buttonElement.classList.add('liked');
+                } else {
+                    // Unlike
+                    icon.className = 'far fa-heart';
+                    buttonElement.classList.remove('liked');
+                }
+                
+                countSpan.textContent = data.like_count;
+            } else {
+                console.error('Failed to like post:', data.error);
+            }
+        } catch (error) {
+            console.error('Error liking post:', error);
+        }
+    }
+    
+    async function retweetPost(postId, buttonElement) {
+        try {
+            const response = await fetch(`/api/posts/${postId}/repost`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                const icon = buttonElement.querySelector('i');
+                const countSpan = buttonElement.querySelector('.repost-count');
+                
+                if (data.reposted) {
+                    // Repost
+                    buttonElement.classList.add('retweeted');
+                } else {
+                    // Unrepost
+                    buttonElement.classList.remove('retweeted');
+                }
+                
+                countSpan.textContent = data.repost_count;
+            } else {
+                console.error('Failed to repost:', data.error);
+            }
+        } catch (error) {
+            console.error('Error reposting:', error);
+        }
+    }
+    
+    // Comments Modal Functionality
+    let currentPostId = null;
+    let currentPost = null;
+    
+    const commentsModal = document.getElementById('commentsModal');
+    const commentsBackdrop = document.getElementById('commentsBackdrop');
+    const closeComments = document.getElementById('closeComments');
+    const originalPost = document.getElementById('originalPost');
+    const commentsList = document.getElementById('commentsList');
+    const commentInput = document.getElementById('commentInput');
+    const commentSubmitBtn = document.getElementById('commentSubmitBtn');
+    
+    // Close modal when clicking backdrop or close button
+    commentsBackdrop.addEventListener('click', closeCommentsModal);
+    closeComments.addEventListener('click', closeCommentsModal);
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && commentsModal.classList.contains('show')) {
+            closeCommentsModal();
+        }
+    });
+    
+    function closeCommentsModal() {
+        commentsModal.classList.remove('show');
+        document.body.style.overflow = '';
+        currentPostId = null;
+        currentPost = null;
+        commentInput.value = '';
+        commentSubmitBtn.disabled = true;
+        commentSubmitBtn.classList.remove('active');
+    }
+    
+    function openCommentsModal(postId, postElement) {
+        currentPostId = postId;
+        currentPost = postElement;
+        
+        // Show original post in modal
+        originalPost.innerHTML = postElement.outerHTML;
+        
+        // Show modal
+        commentsModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Load comments
+        loadComments(postId);
+        
+        // Focus on comment input
+        setTimeout(() => {
+            commentInput.focus();
+        }, 300);
+    }
+    
+    async function loadComments(postId) {
+        console.log('Dashboard: Loading comments for post:', postId);
+        
+        commentsList.innerHTML = `
+            <div class="loading-comments">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading comments...</span>
+            </div>
+        `;
+        
+        try {
+            console.log('Dashboard: Fetching from API...');
+            const response = await fetch(`/api/posts/${postId}/comments`);
+            console.log('Dashboard: Response status:', response.status);
+            
+            const data = await response.json();
+            console.log('Dashboard Comments API Response:', { postId, response: data, status: response.status });
+            
+            if (response.ok && data.success) {
+                console.log('Dashboard: Displaying comments:', data.comments);
+                displayComments(data.comments || []);
+            } else {
+                console.log('Dashboard: API returned error:', data.error);
+                throw new Error(data.error || 'Failed to load comments');
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+            commentsList.innerHTML = `
+                <div class="empty-comments">
+                    <div class="empty-comments-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="empty-comments-text">Failed to load comments</div>
+                </div>
+            `;
+        }
+    }
+    
+    function displayComments(comments) {
+        if (comments.length === 0) {
+            commentsList.innerHTML = `
+                <div class="empty-comments">
+                    <div class="empty-comments-icon">
+                        <i class="fas fa-comment"></i>
+                    </div>
+                    <div class="empty-comments-text">No comments yet</div>
+                    <div class="empty-comments-subtext">Be the first to comment!</div>
+                </div>
+            `;
+            return;
+        }
+        
+        commentsList.innerHTML = comments.map(comment => createCommentElement(comment)).join('');
+    }
+    
+    function createCommentElement(comment) {
+        const timestamp = formatTimestamp(comment.created_at);
+        const displayName = comment.user.first_name || comment.user.username;
+        
+        // Add three-dot menu if user can edit/delete the comment
+        const threeDotMenu = comment.can_delete ? `
+            <div class="comment-options">
+                <button class="comment-action-btn options-btn" onclick="toggleCommentOptions(${comment.id})" title="More options">
+                    <i class="fas fa-ellipsis-h"></i>
+                </button>
+                <div class="comment-options-menu" id="commentOptions${comment.id}">
+                    <button class="option-item" onclick="editComment(${comment.id})">
+                        <i class="fas fa-edit"></i>
+                        Edit Comment
+                    </button>
+                    <button class="option-item delete-option" onclick="deleteComment(${comment.id}, this)">
+                        <i class="fas fa-trash"></i>
+                        Delete Comment
+                    </button>
+                </div>
+            </div>
+        ` : '';
+        
+        return `
+            <div class="comment-item" data-comment-id="${comment.id}">
+                <div class="comment-avatar">
+                    ${comment.user.profile_picture ? 
+                        `<img src="${comment.user.profile_picture}" alt="${displayName}">` : 
+                        `<i class="fas fa-user"></i>`
+                    }
+                </div>
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <span class="comment-author">${displayName}</span>
+                        <span class="comment-username">@${comment.user.username}</span>
+                        <span class="comment-timestamp">${timestamp}</span>
+                        ${threeDotMenu}
+                    </div>
+                    <div class="comment-text">${escapeHtml(comment.content)}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Comment input functionality
+    commentInput.addEventListener('input', function() {
+        // Auto-resize
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+        
+        // Character count
+        const length = this.value.length;
+        const charCount = document.getElementById('charCount');
+        if (charCount) {
+            charCount.textContent = `${length}/280`;
+        }
+        
+        // Enable/disable button
+        const text = this.value.trim();
+        if (text.length > 0 && text.length <= 280) {
+            commentSubmitBtn.disabled = false;
+            commentSubmitBtn.classList.add('active');
+        } else {
+            commentSubmitBtn.disabled = true;
+            commentSubmitBtn.classList.remove('active');
+        }
+    });
+    
+    commentInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!commentSubmitBtn.disabled) {
+                submitComment();
             }
         }
-    </script>
-    <script>
-        // Presence bulk polling for friends
-        document.addEventListener('DOMContentLoaded', function() {
-            const items = Array.from(document.querySelectorAll('.friend-item'));
-            const idMap = items.map(it => {
-                const link = it.querySelector('.friend-actions a[href*="/chat/"]');
-                if (!link) return null;
-                const m = link.getAttribute('href').match(/\/chat\/(\d+)/);
-                return m ? { el: it, id: parseInt(m[1]) } : null;
-            }).filter(Boolean);
-            async function pollPresence() {
-                if (idMap.length === 0) return;
-                const ids = idMap.map(x => x.id).join(',');
-                try {
-                    const res = await fetch(`/api/presence/bulk?ids=${encodeURIComponent(ids)}`);
-                    const data = await res.json();
-                    idMap.forEach(({ el, id }) => {
-                        const online = data[String(id)] && data[String(id)].online;
-                        const dot = el.querySelector('.online-dot');
-                        const label = el.querySelector('.friend-status');
-                        if (online) {
-                            if (dot) dot.style.display = '';
-                            if (label) label.innerHTML = '<span class="text-success">● Online</span>';
-                        } else {
-                            if (dot) dot.style.display = 'none';
-                            if (label) label.innerHTML = '<span class="text-muted">○ Offline</span>';
-                        }
-                    });
-                } catch (e) {}
+    });
+    
+    commentSubmitBtn.addEventListener('click', submitComment);
+    
+    async function submitComment() {
+        if (!currentPostId) return;
+        
+        const content = commentInput.value.trim();
+        if (content.length === 0 || content.length > 280) return;
+        
+        // Disable button during submission
+        commentSubmitBtn.disabled = true;
+        commentSubmitBtn.textContent = 'Posting...';
+        
+        try {
+            const response = await fetch(`/api/posts/${currentPostId}/comment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: content })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Clear input and reset
+                commentInput.value = '';
+                commentInput.style.height = 'auto';
+                commentSubmitBtn.disabled = true;
+                commentSubmitBtn.classList.remove('active');
+                commentSubmitBtn.textContent = 'Post';
+                
+                // Reset character count
+                const charCount = document.getElementById('charCount');
+                if (charCount) {
+                    charCount.textContent = '0/280';
+                }
+                
+                // Reload comments to show the new comment
+                loadComments(currentPostId);
+                
+                // Update comment count in the original post
+                if (currentPost) {
+                    const commentCountSpan = currentPost.querySelector('.comment-count');
+                    commentCountSpan.textContent = data.comment_count;
+                }
+            } else {
+                console.error('Failed to add comment:', data.error);
+                alert('Failed to add comment: ' + data.error);
+                commentSubmitBtn.disabled = false;
+                commentSubmitBtn.textContent = 'Post';
             }
-            pollPresence();
-            setInterval(pollPresence, 10000);
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            alert('Failed to add comment');
+            commentSubmitBtn.disabled = false;
+            commentSubmitBtn.textContent = 'Post';
+        }
+    }
+    
+    function replyToPost(postId) {
+        // Find the post element and open comments modal
+        const postElement = document.querySelector(`[data-post-id="${postId}"]`).closest('.post-item');
+        openCommentsModal(postId, postElement);
+    }
+    
+    // Toggle Post Options Menu
+    function togglePostOptions(postId) {
+        // Close all other open menus first
+        const allMenus = document.querySelectorAll('.post-options-menu.show');
+        allMenus.forEach(menu => {
+            if (menu.id !== `postOptions${postId}`) {
+                menu.classList.remove('show');
+            }
         });
-    </script>
+        
+        // Toggle the clicked menu
+        const menu = document.getElementById(`postOptions${postId}`);
+        if (menu) {
+            menu.classList.toggle('show');
+        }
+    }
+    
+    // Close all menus when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.post-options')) {
+            const allMenus = document.querySelectorAll('.post-options-menu.show');
+            allMenus.forEach(menu => menu.classList.remove('show'));
+        }
+    });
+    
+    // Edit Post Function
+    function editPost(postId) {
+        // Close the menu
+        const menu = document.getElementById(`postOptions${postId}`);
+        if (menu) {
+            menu.classList.remove('show');
+        }
+        
+        // For now, show a simple prompt (you can enhance this with a modal later)
+        const postElement = document.querySelector(`[data-post-id="${postId}"]`).closest('.post-item');
+        const currentContent = postElement.querySelector('.post-content').textContent;
+        
+        const newContent = prompt('Edit your post:', currentContent);
+        if (newContent && newContent.trim() && newContent !== currentContent) {
+            updatePost(postId, newContent.trim());
+        }
+    }
+    
+    // Update Post Function
+    async function updatePost(postId, newContent) {
+        try {
+            const response = await fetch(`/api/posts/${postId}/update`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: newContent })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Update the post content in the DOM
+                const postElement = document.querySelector(`[data-post-id="${postId}"]`).closest('.post-item');
+                const contentElement = postElement.querySelector('.post-content');
+                contentElement.innerHTML = escapeHtml(newContent);
+                
+                // Show success message
+                alert('Post updated successfully!');
+            } else {
+                console.error('Failed to update post:', data.error);
+                alert('Failed to update post: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error updating post:', error);
+            alert('Failed to update post');
+        }
+    }
+    
+    // Delete Post Function
+    async function deletePost(postId, buttonElement) {
+        if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/posts/${postId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Remove the post element from the DOM
+                const postElement = buttonElement.closest('.post-item');
+                postElement.remove();
+                
+                // Show success message
+                alert('Post deleted successfully!');
+            } else {
+                console.error('Failed to delete post:', data.error);
+                alert('Failed to delete post: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error deleting post:', error);
+            alert('Failed to delete post');
+        }
+    }
+    
+    // Toggle Comment Options Menu
+    function toggleCommentOptions(commentId) {
+        // Close all other open menus first
+        const allMenus = document.querySelectorAll('.comment-options-menu.show');
+        allMenus.forEach(menu => {
+            if (menu.id !== `commentOptions${commentId}`) {
+                menu.classList.remove('show');
+            }
+        });
+        
+        // Toggle the clicked menu
+        const menu = document.getElementById(`commentOptions${commentId}`);
+        if (menu) {
+            menu.classList.toggle('show');
+        }
+    }
+    
+    // Close all comment menus when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.comment-options')) {
+            const allMenus = document.querySelectorAll('.comment-options-menu.show');
+            allMenus.forEach(menu => menu.classList.remove('show'));
+        }
+    });
+    
+    // Edit Comment Function
+    function editComment(commentId) {
+        // Close the menu
+        const menu = document.getElementById(`commentOptions${commentId}`);
+        if (menu) {
+            menu.classList.remove('show');
+        }
+        
+        // Find the comment element and get current content
+        const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+        const currentContent = commentElement.querySelector('.comment-text').textContent;
+        
+        const newContent = prompt('Edit your comment:', currentContent);
+        if (newContent && newContent.trim() && newContent !== currentContent) {
+            updateComment(commentId, newContent.trim());
+        }
+    }
+    
+    // Update Comment Function
+    async function updateComment(commentId, newContent) {
+        try {
+            const response = await fetch(`/api/comments/${commentId}/update`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: newContent })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Update the comment content in the DOM
+                const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+                const contentElement = commentElement.querySelector('.comment-text');
+                contentElement.innerHTML = escapeHtml(newContent);
+                
+                // Show success message
+                alert('Comment updated successfully!');
+            } else {
+                console.error('Failed to update comment:', data.error);
+                alert('Failed to update comment: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error updating comment:', error);
+            alert('Failed to update comment');
+        }
+    }
+    
+    // Delete Comment Function
+    async function deleteComment(commentId, buttonElement) {
+        if (!confirm('Are you sure you want to delete this comment?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/comments/${commentId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Remove the comment element from the DOM
+                const commentElement = buttonElement.closest('.comment-item');
+                commentElement.remove();
+                
+                // Update comment count in the original post
+                if (currentPost) {
+                    const commentCountSpan = currentPost.querySelector('.comment-count');
+                    commentCountSpan.textContent = data.comment_count;
+                }
+                
+                // Show success message
+                alert('Comment deleted successfully!');
+            } else {
+                console.error('Failed to delete comment:', data.error);
+                alert('Failed to delete comment: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            alert('Failed to delete comment');
+        }
+    }
+</script>
 {% endblock %}
